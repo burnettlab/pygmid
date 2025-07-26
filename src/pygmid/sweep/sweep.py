@@ -5,27 +5,43 @@ import os
 import pickle
 import re
 import shutil
+from dataclasses import dataclass, field
+from importlib import import_module
+from pathlib import Path
 
 import numpy as np
 import psf_utils
 from tqdm import tqdm
 
-from .config import Config
+from .config import Config, SweepConfig
 from .simulator import SpectreSimulator
 
+SPECTRE_ARGS = ['+escchars', 
+        '=log', 
+        './sweep/psf/spectre.out', 
+        '-format', 
+        'psfascii', 
+        '-raw', 
+        './sweep/psf']
 
+
+@dataclass
 class Sweep:
-    def __init__(self, config_file_path: str):
-        self._config = Config(config_file_path)
-        spectre_args = ['+escchars', 
-                '=log', 
-                './sweep/psf/spectre.out', 
-                '-format', 
-                'psfascii', 
-                '-raw', 
-                './sweep/psf']
+    config_file_path: str
+    _config: SweepConfig = field(init=False, repr=False)
+    _simulator: SpectreSimulator = field(default_factory=lambda: SpectreSimulator(*SPECTRE_ARGS), repr=False)
+    def __post_init__(self):
+        for f in filter(lambda p: p.suffix == ".py", map(lambda p: Path(p), os.listdir(os.getcwd()))):
+            # Import the file and check if it has a class that is a subclass of Config
+            module_name = f.stem
+            module = import_module(module_name)
+            if v := [cls for cls in module.__dict__.values() if isinstance(cls, type) and issubclass(cls, Config)]:
+                self._config = module.__dict__[v[0].__name__](self.config_file_path)
+                break
 
-        self._simulator = SpectreSimulator(*spectre_args)
+        if self._config is None:
+            ImportWarning("No Config subclass found in the current directory. Using default Config class.")
+            self._config = Config(self.config_file_path)
     
     def run(self):
         
@@ -48,7 +64,7 @@ class Sweep:
             futures = []
             for i, L in enumerate(tqdm(Ls,desc="Sweeping L")):
                 for j, VSB in enumerate(tqdm(VSBs, desc="Sweeping VSB", leave=False)):
-                    self._write_params(length=L, sb=VSB)
+                    self._config._write_params(length=L, sb=VSB)
                     
                     sim_path = f"./sweep/psf_{i}_{j}"
                     self._simulator.directory = sim_path
@@ -99,11 +115,6 @@ class Sweep:
         (nn_dict, pn_dict) = self._extract_sweep_params(filepath, sweep_type="NOISE")
 
         return i, j, n_dict, p_dict, nn_dict, pn_dict
-
-    def _write_params(self, sb=0, length=1):
-        with open('params.scs', 'w') as outfile:
-            outfile.write(f"parameters length={length}\n")
-            outfile.write(f"parameters sb={sb}")
     
     def _cleanup(self):
         try:
@@ -132,6 +143,8 @@ class Sweep:
         elif sweep_type == "NOISE":
             filename_pattern = 'sweepvds_noise-*_sweepvgs_noise.noise'
             params = [ k[0].split(':')[1] for k in self._config['n_noise'] ]
+        else:
+            raise ValueError(f"Unknown sweep type: {sweep_type}. Must be 'DC' or 'NOISE'.")
 
         file_paths = glob.glob(os.path.join(sweep_output_directory, filename_pattern))
         # remove directory in case it contains number. Only want to sort based on filename itself
