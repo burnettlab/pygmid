@@ -3,5 +3,6 @@ from .Lookup import *
 from .pygmid import main
 from .numerical import interp1
 from .utility import *
+from .sweep import SweepConfig
 
-__all__ = ['main', 'Lookup', 'interp1', 'EKV_param_extraction', 'XTRACT']
+__all__ = ['main', 'Lookup', 'interp1', 'EKV_param_extraction', 'XTRACT', 'SweepConfig']
