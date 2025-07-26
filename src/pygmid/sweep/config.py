@@ -24,10 +24,16 @@ class SweepConfig(ABC):
         self._configParser.read(self.config_file_path)
         self._config = {s:dict(self._configParser.items(s)) for s in self._configParser.sections()}
         self._parse_ranges()
-        self._generate_netlist()
+        with open('pysweep.scs', 'w') as netlist_file:
+            netlist_file.write(self._generate_netlist())
+
         self._config['outvars'] = 	['ID','VT','IGD','IGS','GM','GMB','GDS','CGG','CGS','CSG','CGD','CDG','CGB','CDD','CSS']
         self._config['outvars_noise'] = ['STH','SFL']
-        self._generate_outvars()      
+        n, p, n_noise, p_noise = self._generate_outvars()
+        self._config['n'] = n
+        self._config['p'] = p
+        self._config['n_noise'] = n_noise
+        self._config['p_noise'] = p_noise
 
     def __getitem__(self, key):
         if key not in self._config.keys():
@@ -61,15 +67,15 @@ class SweepConfig(ABC):
         }
     
     def _write_params(self, **kwargs):
-        with open('params.scs', 'w') as outfile:
+        paramfile = self._config['MODEL'].get('PARAMFILE', 'params.scs')
+        with open(paramfile, 'w') as outfile:
             outfile.write(f"parameters {' '.join([f'{k}={v}' for k, v in kwargs.items()])}")
         
     @abstractmethod
-    def _generate_netlist(self):
+    def _generate_netlist(self) -> str:
         """ Generate the netlist for the simulation. """
         modelfile = self._config['MODEL']['FILE']
-        # paramfile = self._config['MODEL']['PARAMFILE']
-        paramfile = 'params.scs'
+        paramfile = self._config['MODEL'].get('PARAMFILE', 'params.scs')
         width = self._config['SWEEP']['WIDTH']
         modelp = self._config['MODEL']['MODELP']
         modeln = self._config['MODEL']['MODELN']
@@ -89,7 +95,7 @@ class SweepConfig(ABC):
     
         NFING = self._config['SWEEP']['NFING']
     
-        netlist = (
+        return '\n'.join((
             f"//pysweep.scs",
             f"include {modelfile}",
             f'include "{paramfile}"\n',   
@@ -118,20 +124,18 @@ class SweepConfig(ABC):
             f'sweepvds_noise sweep param=ds start=0 stop={VDS_max} step={VDS_step} {{', 
             f'	sweepvgs_noise noise freq=1 oprobe=vnoi param=gs start=0 stop={VGS_max} step={VGS_step}', 
             f'}}'
-            )
+        ))
         with open('pysweep.scs', 'w') as outfile:
             outfile.write('\n'.join(netlist))
     
     @abstractmethod
-    def _generate_outvars(self):
+    def _generate_outvars(self, n: list=[], p: list=[], n_noise: list=[], p_noise: list=[]) -> tuple[list, list, list, list]:
         """ Generate the mapping of output variables from the simulation to the lookup table. 
         
         outvars: `['ID','VT','IGD','IGS','GM','GMB','GDS','CGG','CGS','CSG','CGD','CDG','CGB','CDD','CSS']`
         outvars_noise: `['STH','SFL']`
 
         """
-        n = []
-        p = []
         n.append( ['mn:ids','A',   	[1,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:vth','V',   	[0,    1,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:igd','A',   	[0,    0,   1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
@@ -149,7 +153,6 @@ class SweepConfig(ABC):
         n.append( ['mn:csg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,   -1,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:cjd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
         n.append( ['mn:cjs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        self._config['n'] = n		
 
         p.append( ['mp:ids','A',   	[-1,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         p.append( ['mp:vth','V',   	[ 0,   -1,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
@@ -168,23 +171,21 @@ class SweepConfig(ABC):
         p.append( ['mp:csg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,   -1,    0,    0,    0,    0,    0  ]])
         p.append( ['mp:cjd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
         p.append( ['mp:cjs','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        self._config['p'] = p	
         
-        n_noise = []
-        p_noise = []
         n_noise.append(['mn:id', ''])
         n_noise.append(['mn:fn', ''])
-        self._config['n_noise'] = n_noise
         
         p_noise.append(['mp:id', ''])
         p_noise.append(['mp:fn', ''])
-        self._config['p_noise'] = p_noise
+        return (n, p, n_noise, p_noise)
 
 class Config(SweepConfig):
     """ Configuration class for the sweep simulation. """
+    def __post_init__(self):
+        super().__post_init__()
     
     def _generate_netlist(self):
-        super()._generate_netlist()
+        return super()._generate_netlist()
     
-    def _generate_outvars(self):
-        super()._generate_outvars()
+    def _generate_outvars(self, *args, **kwargs):
+        return super()._generate_outvars(*args, **kwargs)
