@@ -19,7 +19,7 @@ class SweepConfig(ABC):
     _configParser: configparser.ConfigParser = field(default_factory=configparser.ConfigParser, repr=False)
     _config: dict = field(init=False)
 
-    def __post__init__(self):
+    def __post_init__(self):
         self._configParser.optionxform = toupper	
         self._configParser.read(self.config_file_path)
         self._config = {s:dict(self._configParser.items(s)) for s in self._configParser.sections()}
@@ -99,10 +99,9 @@ class SweepConfig(ABC):
             f"//pysweep.scs",
             f"include {modelfile}",
             f'include "{paramfile}"\n',   
-            f'save mn:oppoint',  
-            f'save mp:oppoint',
+            f'save *:oppoint',
             f'\n',
-            f'parameters gs=0.498 ds=0.2 L=length*1e-6 Wtot={width}e-6 W=500n',
+            f'parameters gs=0.498 ds=0.2 L=length*1e-6 Wtot={width}e-6 W=500n nf={NFING}',
             f'\n',
             f'vnoi     (vx  0)         vsource dc=0',  
             f'vdsn     (vdn vx)         vsource dc=ds',   

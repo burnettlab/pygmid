@@ -8,6 +8,7 @@ import shutil
 from dataclasses import dataclass, field
 from importlib import import_module
 from pathlib import Path
+from warnings import warn
 
 import numpy as np
 import psf_utils
@@ -28,19 +29,24 @@ SPECTRE_ARGS = ['+escchars',
 @dataclass
 class Sweep:
     config_file_path: str
-    _config: SweepConfig = field(init=False, repr=False)
+    _config: SweepConfig | None = field(default_factory=lambda: None, repr=False)
     _simulator: SpectreSimulator = field(default_factory=lambda: SpectreSimulator(*SPECTRE_ARGS), repr=False)
     def __post_init__(self):
         for f in filter(lambda p: p.suffix == ".py", map(lambda p: Path(p), os.listdir(os.getcwd()))):
             # Import the file and check if it has a class that is a subclass of Config
             module_name = f.stem
             module = import_module(module_name)
-            if v := [cls for cls in module.__dict__.values() if isinstance(cls, type) and issubclass(cls, Config)]:
-                self._config = module.__dict__[v[0].__name__](self.config_file_path)
+            try:
+                cls = next(filter(lambda c: isinstance(c, type) and issubclass(c, SweepConfig) and c != SweepConfig, map(lambda n: getattr(module, n), filter(lambda n: not n.startswith("__") and not n.endswith("__"), dir(module)))))
+                self._config = cls(self.config_file_path)
+                print(f"Loaded config from {f.stem}{f.suffix}")
+                #print(f"{self._config=}")
                 break
+            except StopIteration:
+                pass
 
         if self._config is None:
-            ImportWarning("No Config subclass found in the current directory. Using default Config class.")
+            warn("No Config subclass found in the current directory. Using default Config class.", ImportWarning)
             self._config = Config(self.config_file_path)
     
     def run(self):
@@ -139,19 +145,19 @@ class Sweep:
         """
         if sweep_type == "DC":
             filename_pattern = 'sweepvds-*_sweepvgs.dc'
-            params = [ k[0].split(':')[1] for k in self._config['n'] ]
+            params = [ '.'.join(k[0].split('.')[1:]) for k in self._config['n'] ]
         elif sweep_type == "NOISE":
             filename_pattern = 'sweepvds_noise-*_sweepvgs_noise.noise'
-            params = [ k[0].split(':')[1] for k in self._config['n_noise'] ]
+            params = [ '.'.join(k[0].split('.')[1:]) for k in self._config['n_noise'] ]
         else:
             raise ValueError(f"Unknown sweep type: {sweep_type}. Must be 'DC' or 'NOISE'.")
 
         file_paths = glob.glob(os.path.join(sweep_output_directory, filename_pattern))
         # remove directory in case it contains number. Only want to sort based on filename itself
         filelist = sorted([os.path.basename(f) for f in file_paths], key=self._extract_number_regex)
-
-        nmos = {f"mn:{param}" : np.zeros((len(self._config['SWEEP']['VGS']), len(self._config['SWEEP']['VDS']))) for param in params}
-        pmos = {f"mp:{param}" : np.zeros((len(self._config['SWEEP']['VGS']), len(self._config['SWEEP']['VDS']))) for param in params}
+        
+        nmos = {f"mn.{param}" : np.zeros((len(self._config['SWEEP']['VGS']), len(self._config['SWEEP']['VDS']))) for param in params}
+        pmos = {f"mp.{param}" : np.zeros((len(self._config['SWEEP']['VGS']), len(self._config['SWEEP']['VDS']))) for param in params}
         for VDS_i, f in enumerate(filelist):
             # reconstruct path
             file_path = os.path.join(sweep_output_directory, f)
@@ -159,7 +165,7 @@ class Sweep:
             psf = psf_utils.PSF( file_path )
             
             for param in params:
-                nmos[f'mn:{param}'][:,VDS_i] = (psf.get_signal(f"mn:{param}").ordinate).T
-                pmos[f'mp:{param}'][:,VDS_i] = (psf.get_signal(f"mp:{param}").ordinate).T
+                nmos[f'mn.{param}'][:,VDS_i] = (psf.get_signal(f"mn.{param}").ordinate).T
+                pmos[f'mp.{param}'][:,VDS_i] = (psf.get_signal(f"mp.{param}").ordinate).T
         
         return (nmos, pmos)
