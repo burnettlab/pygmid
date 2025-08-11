@@ -2,75 +2,37 @@ import numpy as np
 import json
 import ast
 import configparser
+from dataclasses import dataclass, field
+from abc import ABC, abstractmethod
 
 def matrange(start, step, stop):
     num = round((stop - start) / step + 1)
     
     return np.linspace(start, stop, num)
 
-def toupper(option):
-    return option.upper()
+def toupper(optionstr: str) -> str:
+    return optionstr.upper()
 
-class Config:
-    def __init__(self, config_file_path: str):
-        self._configParser = configparser.ConfigParser()
-        #self._configParser.optionxform = lambda option: option.upper()		
-        self._configParser.optionxform = toupper
-        self._configParser.read(config_file_path)
+@dataclass
+class SweepConfig(ABC):
+    config_file_path: str
+    _configParser: configparser.ConfigParser = field(default_factory=configparser.ConfigParser, repr=False)
+    _config: dict = field(init=False)
+
+    def __post_init__(self):
+        self._configParser.optionxform = toupper	
+        self._configParser.read(self.config_file_path)
         self._config = {s:dict(self._configParser.items(s)) for s in self._configParser.sections()}
         self._parse_ranges()
-        self._generate_netlist()        
-        
-        n = []
-        p = []
-        self._config['outvars'] = 	['ID','VT','IGD','IGS','GM','GMB','GDS','CGG','CGS','CSG','CGD','CDG','CGB','CDD','CSS']
-        n.append( ['mn:ids','A',   	[1,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:vth','V',   	[0,    1,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:igd','A',   	[0,    0,   1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:igs','A',   	[0,    0,   0,    1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:gm','S',    	[0,    0,   0,    0,    1,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:gmbs','S',  	[0,    0,   0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:gds','S',   	[0,    0,   0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:cgg','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,   -1,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:cgd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,   -1,    0,    0,    0,    0  ]])
-        n.append( ['mn:cgb','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,   -1,    0,    0  ]])
-        n.append( ['mn:cdd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        n.append( ['mn:cdg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,   -1,    0,    0,    0  ]])
-        n.append( ['mn:css','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        n.append( ['mn:csg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,   -1,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:cjd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        n.append( ['mn:cjs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        self._config['n'] = n		
+        with open('pysweep.scs', 'w') as netlist_file:
+            netlist_file.write(self._generate_netlist())
 
-        p.append( ['mp:ids','A',   	[-1,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:vth','V',   	[ 0,   -1,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:igd','A',   	[ 0,    0,   -1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:igs','A',   	[ 0,    0,    0,   -1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:gm','S',    	[ 0,    0,    0,    0,    1,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:gmbs','S',  	[ 0,    0,    0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:gds','S',   	[ 0,    0,    0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:cgg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:cgs','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,   -1,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:cgd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,   -1,    0,    0,    0,    0  ]])
-        p.append( ['mp:cgb','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,   -1,    0,    0  ]])
-        p.append( ['mp:cdd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        p.append( ['mp:cdg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,   -1,    0,    0,    0  ]])
-        p.append( ['mp:css','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        p.append( ['mp:csg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,   -1,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:cjd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        p.append( ['mp:cjs','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        self._config['p'] = p	
-        
+        self._config['outvars'] = 	['ID','VT','IGD','IGS','GM','GMB','GDS','CGG','CGS','CSG','CGD','CDG','CGB','CDD','CSS']
         self._config['outvars_noise'] = ['STH','SFL']
-        n_noise = []
-        p_noise = []
-        n_noise.append(['mn:id', ''])
-        n_noise.append(['mn:fn', ''])
+        n, p, n_noise, p_noise = self._generate_outvars()
+        self._config['n'] = n
+        self._config['p'] = p
         self._config['n_noise'] = n_noise
-        
-        p_noise.append(['mp:id', ''])
-        p_noise.append(['mp:fn', ''])
         self._config['p_noise'] = p_noise
 
     def __getitem__(self, key):
@@ -103,22 +65,29 @@ class Config:
             'VDS' : np.array(self._config['SWEEP']['VDS']).T,
             'VSB' : np.array(self._config['SWEEP']['VSB']).T 
         }
+    
+    def _write_params(self, **kwargs):
+        paramfile = self._config['MODEL'].get('PARAMFILE', 'params.scs')
+        with open(paramfile, 'w') as outfile:
+            outfile.write(f"parameters {' '.join([f'{k}={v}' for k, v in kwargs.items()])}")
         
-    def _generate_netlist(self):
+    @abstractmethod
+    def _generate_netlist(self) -> str:
+        """ Generate the netlist for the simulation. """
         modelfile = self._config['MODEL']['FILE']
-        paramfile = self._config['MODEL']['PARAMFILE']
+        paramfile = self._config['MODEL'].get('PARAMFILE', 'params.scs')
         width = self._config['SWEEP']['WIDTH']
         modelp = self._config['MODEL']['MODELP']
         modeln = self._config['MODEL']['MODELN']
         try:
-            mn_supplement = '\n\t'.join(json.loads(self._config['MODEL']['MN']))
+            mn_supplement = '\\\n\t'.join(json.loads(self._config['MODEL']['MN']))
         except json.decoder.JSONDecodeError:
             raise "Error parsing config: make sure MN has no weird characters in it, and that the list isn't terminated with a trailing ','"
         try:
-            mp_supplement = '\n\t'.join(json.loads(self._config['MODEL']['MP']))
+            mp_supplement = '\\\n\t'.join(json.loads(self._config['MODEL']['MP']))
         except json.decoder.JSONDecodeError:
             raise "Error parsing config: make sure MP has no weird characters in it, and that the list isn't terminated with a trailing ','"
-        temp =int(self._config['MODEL']['TEMP'])-273
+        temp = float(self._config['MODEL']['TEMP'])-273.15
         VDS_max = max(self._config['SWEEP']['VDS'])
         VDS_step = self._config['SWEEP']['VDS'][1] - self._config['SWEEP']['VDS'][0] 
         VGS_max = max(self._config['SWEEP']['VGS'])
@@ -126,14 +95,13 @@ class Config:
     
         NFING = self._config['SWEEP']['NFING']
     
-        netlist = (
+        return '\n'.join((
             f"//pysweep.scs",
             f"include {modelfile}",
             f'include "{paramfile}"\n',   
-            f'save mn:oppoint',  
-            f'save mp:oppoint',
+            f'save *:oppoint',
             f'\n',
-            f'parameters gs=0.498 ds=0.2 L=length*1e-6 Wtot={width}e-6 W=500n',
+            f'parameters gs=0.498 ds=0.2 L=length*1e-6 Wtot={width}e-6 W=500n nf={NFING}',
             f'\n',
             f'vnoi     (vx  0)         vsource dc=0',  
             f'vdsn     (vdn vx)         vsource dc=ds',   
@@ -155,6 +123,68 @@ class Config:
             f'sweepvds_noise sweep param=ds start=0 stop={VDS_max} step={VDS_step} {{', 
             f'	sweepvgs_noise noise freq=1 oprobe=vnoi param=gs start=0 stop={VGS_max} step={VGS_step}', 
             f'}}'
-            )
+        ))
         with open('pysweep.scs', 'w') as outfile:
             outfile.write('\n'.join(netlist))
+    
+    @abstractmethod
+    def _generate_outvars(self, n: list=[], p: list=[], n_noise: list=[], p_noise: list=[]) -> tuple[list, list, list, list]:
+        """ Generate the mapping of output variables from the simulation to the lookup table. 
+        
+        outvars: `['ID','VT','IGD','IGS','GM','GMB','GDS','CGG','CGS','CSG','CGD','CDG','CGB','CDD','CSS']`
+        outvars_noise: `['STH','SFL']`
+
+        """
+        n.append( ['mn:ids','A',   	[1,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:vth','V',   	[0,    1,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:igd','A',   	[0,    0,   1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:igs','A',   	[0,    0,   0,    1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:gm','S',    	[0,    0,   0,    0,    1,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:gmbs','S',  	[0,    0,   0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:gds','S',   	[0,    0,   0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:cgg','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,   -1,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:cgd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,   -1,    0,    0,    0,    0  ]])
+        n.append( ['mn:cgb','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,   -1,    0,    0  ]])
+        n.append( ['mn:cdd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
+        n.append( ['mn:cdg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,   -1,    0,    0,    0  ]])
+        n.append( ['mn:css','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
+        n.append( ['mn:csg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,   -1,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:cjd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
+        n.append( ['mn:cjs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
+
+        p.append( ['mp:ids','A',   	[-1,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:vth','V',   	[ 0,   -1,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:igd','A',   	[ 0,    0,   -1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:igs','A',   	[ 0,    0,    0,   -1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:gm','S',    	[ 0,    0,    0,    0,    1,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:gmbs','S',  	[ 0,    0,    0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:gds','S',   	[ 0,    0,    0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:cgg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:cgs','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,   -1,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:cgd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,   -1,    0,    0,    0,    0  ]])
+        p.append( ['mp:cgb','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,   -1,    0,    0  ]])
+        p.append( ['mp:cdd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
+        p.append( ['mp:cdg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,   -1,    0,    0,    0  ]])
+        p.append( ['mp:css','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
+        p.append( ['mp:csg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,   -1,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:cjd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
+        p.append( ['mp:cjs','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
+        
+        n_noise.append(['mn:id', ''])
+        n_noise.append(['mn:fn', ''])
+        
+        p_noise.append(['mp:id', ''])
+        p_noise.append(['mp:fn', ''])
+        return (n, p, n_noise, p_noise)
+
+class Config(SweepConfig):
+    """ Configuration class for the sweep simulation. """
+    def __post_init__(self):
+        super().__post_init__()
+    
+    def _generate_netlist(self):
+        return super()._generate_netlist()
+    
+    def _generate_outvars(self, *args, **kwargs):
+        return super()._generate_outvars(*args, **kwargs)

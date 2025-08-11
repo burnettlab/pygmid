@@ -110,6 +110,17 @@ class Lookup:
 
         return np.copy(self.__DATA[key.upper()])
 
+    def __setitem__(self, key, value):
+        """
+        __setitem__ dunder method overwritten to allow convenient
+        pseudo array access to member data. Sets the member data
+        to the value passed.
+        """
+        if key.upper() not in self.__DATA.keys():
+            raise ValueError(f"Lookup table does not contain this data")
+
+        self.__DATA[key.upper()] = np.copy(value)
+
     def _modeset(self, outkey, varkey):
         """
         Function to set lookup mode
