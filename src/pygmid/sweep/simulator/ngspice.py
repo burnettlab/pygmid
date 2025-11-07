@@ -264,7 +264,8 @@ class ngspiceSimulator(Simulator):
         with open(self.netlist_filepath.replace(self.netlist_ext, "sch"), 'w') as f:
             f.write(multiline_join(schem))
 
-        if xschem_rc := self._config['SIMULATOR'].get('XSCHEM_RC', None):
+        xschem_rc = self._config['SIMULATOR'].get('XSCHEM_RC', None)
+        if xschem_rc is not None:
             print("Generating netlist using xschem...")
             cmd_args = ['xschem', '--detach', '--netlist', self.netlist_filepath.replace(self.netlist_ext, "sch"), '-o', str(Path(self.netlist_filepath).parent.resolve()), '--rcfile', os.path.expandvars(xschem_rc)]
         
