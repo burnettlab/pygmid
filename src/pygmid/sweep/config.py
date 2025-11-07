@@ -4,7 +4,7 @@ import json
 from abc import ABC, abstractmethod
 from itertools import chain
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 
@@ -81,7 +81,7 @@ class SweepConfig(ABC):
         }
 
     @abstractmethod
-    def write_params(self, length: Optional[float | str] = None, sb: Optional[float | str] = None, **kwargs):
+    def write_params(self, length: Optional[Union[float, str]] = None, sb: Optional[Union[float, str]] = None, **kwargs):
         kwargs.update(filter(lambda item: item[1] is not None, {'length': length, 'sb': sb}.items()))
         with open(self.paramfile, 'w') as outfile:
             outfile.write(f"parameters {' '.join([f'{k}={v}' for k, v in kwargs.items()])}")
