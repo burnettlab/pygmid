@@ -1,9 +1,17 @@
-import numpy as np
-import json
 import ast
 import configparser
-from dataclasses import dataclass, field
+import json
 from abc import ABC, abstractmethod
+from itertools import chain
+from dataclasses import dataclass, field
+from typing import Optional
+
+import numpy as np
+
+from .simulator import SIMULATORS, Simulator
+
+LENGTH_PRECISION = 0.005  # in microns
+
 
 def matrange(start, step, stop):
     num = round((stop - start) / step + 1)
@@ -13,32 +21,38 @@ def matrange(start, step, stop):
 def toupper(optionstr: str) -> str:
     return optionstr.upper()
 
+
 @dataclass
 class SweepConfig(ABC):
     config_file_path: str
     _configParser: configparser.ConfigParser = field(default_factory=configparser.ConfigParser, repr=False)
     _config: dict = field(init=False)
+    _simulator: Simulator = field(init=False, repr=False)
 
     def __post_init__(self):
         self._configParser.optionxform = toupper	
         self._configParser.read(self.config_file_path)
         self._config = {s:dict(self._configParser.items(s)) for s in self._configParser.sections()}
         self._parse_ranges()
-        with open('pysweep.scs', 'w') as netlist_file:
-            netlist_file.write(self._generate_netlist())
-
+        
         self._config['outvars'] = 	['ID','VT','IGD','IGS','GM','GMB','GDS','CGG','CGS','CSG','CGD','CDG','CGB','CDD','CSS']
         self._config['outvars_noise'] = ['STH','SFL']
-        n, p, n_noise, p_noise = self._generate_outvars()
+        n, p, n_noise, p_noise = self.generate_outvars()
         self._config['n'] = n
         self._config['p'] = p
         self._config['n_noise'] = n_noise
         self._config['p_noise'] = p_noise
 
+        self._simulator = SIMULATORS[self._config.get("SIMULATOR", {"TYPE": "spectre"})["TYPE"]](self)
+
+    @property
+    def paramfile(self) -> str:
+        if self._config.get("SIMULATOR", {"TYPE": "spectre"})["TYPE"] == "spectre":
+            return self._config['MODEL'].get('PARAMFILE', 'params.scs')
+        else:
+            return '.'.join(self._config['MODEL'].get('PARAMFILE', self._simulator.output).split(".")[:-1] + ["sch"])
+
     def __getitem__(self, key):
-        if key not in self._config.keys():
-            raise ValueError(f"Lookup table does not contain this data")
-    
         return self._config[key]
         
     def _parse_ranges(self):
@@ -46,12 +60,12 @@ class SweepConfig(ABC):
         for k in ['VGS', 'VDS', 'VSB', 'LENGTH']:
             v = ast.literal_eval(self._config['SWEEP'][k])
             v = [v] if type(v) is not list else v
-            v = [matrange(*r) for r in v]
-            v = [val for r in v for val in r] 
-            self._config['SWEEP'][k] = v
-    
-        for k in ['WIDTH', 'NFING']:
-            self._config['SWEEP'][k] = int(self._config['SWEEP'][k])
+            v = [matrange(*r) if isinstance(r, (list, tuple)) else [r] for r in v]
+            v = list(chain.from_iterable(v))
+            self._config['SWEEP'][k] = np.unique(v).tolist()
+
+        self._config['SWEEP']['WIDTH'] = float(self._config['SWEEP']['WIDTH'])
+        self._config['SWEEP']['NFING'] = int(self._config['SWEEP']['NFING'])
     
     def generate_m_dict(self):
         return {
@@ -65,76 +79,73 @@ class SweepConfig(ABC):
             'VDS' : np.array(self._config['SWEEP']['VDS']).T,
             'VSB' : np.array(self._config['SWEEP']['VSB']).T 
         }
-    
-    def _write_params(self, **kwargs):
-        paramfile = self._config['MODEL'].get('PARAMFILE', 'params.scs')
-        with open(paramfile, 'w') as outfile:
-            outfile.write(f"parameters {' '.join([f'{k}={v}' for k, v in kwargs.items()])}")
-        
+
     @abstractmethod
-    def _generate_netlist(self) -> str:
-        """ Generate the netlist for the simulation. """
+    def write_params(self, length: Optional[float | str] = None, sb: Optional[float | str] = None, **kwargs):
+        kwargs.update(filter(lambda item: item[1] is not None, {'length': length, 'sb': sb}.items()))
+        with open(self.paramfile, 'w') as outfile:
+            outfile.write(f"parameters {' '.join([f'{k}={v}' for k, v in kwargs.items()])}")
+
+        self._simulator.output = (length, sb)   # type: ignore
+        
+    def _write_netlist(self):
+        """ Write the netlist for the simulation. """
         modelfile = self._config['MODEL']['FILE']
-        paramfile = self._config['MODEL'].get('PARAMFILE', 'params.scs')
         width = self._config['SWEEP']['WIDTH']
         modelp = self._config['MODEL']['MODELP']
         modeln = self._config['MODEL']['MODELN']
         try:
             mn_supplement = '\\\n\t'.join(json.loads(self._config['MODEL']['MN']))
         except json.decoder.JSONDecodeError:
-            raise "Error parsing config: make sure MN has no weird characters in it, and that the list isn't terminated with a trailing ','"
+            raise SyntaxError("Error parsing config: make sure MN has no weird characters in it, and that the list isn't terminated with a trailing ','")
         try:
             mp_supplement = '\\\n\t'.join(json.loads(self._config['MODEL']['MP']))
         except json.decoder.JSONDecodeError:
-            raise "Error parsing config: make sure MP has no weird characters in it, and that the list isn't terminated with a trailing ','"
-        temp = float(self._config['MODEL']['TEMP'])-273.15
+            raise SyntaxError("Error parsing config: make sure MP has no weird characters in it, and that the list isn't terminated with a trailing ','")
+        
+        temp = float(self._config['MODEL']['TEMP']) - 273.15
         VDS_max = max(self._config['SWEEP']['VDS'])
-        VDS_step = self._config['SWEEP']['VDS'][1] - self._config['SWEEP']['VDS'][0] 
+        VDS_step = np.round(self._config['SWEEP']['VDS'][1] - self._config['SWEEP']['VDS'][0], 6)
         VGS_max = max(self._config['SWEEP']['VGS'])
-        VGS_step = self._config['SWEEP']['VGS'][1] - self._config['SWEEP']['VGS'][0]
-    
+        VGS_step = np.round(self._config['SWEEP']['VGS'][1] - self._config['SWEEP']['VGS'][0], 6)
+        VSB_max = max(self._config['SWEEP']['VSB'])
+        VSB_step = np.round(self._config['SWEEP']['VSB'][1] - self._config['SWEEP']['VSB'][0], 6)
+
+        LEN_VEC = np.round(np.array(self._config['SWEEP']['LENGTH']) / LENGTH_PRECISION) * LENGTH_PRECISION
         NFING = self._config['SWEEP']['NFING']
-    
-        return '\n'.join((
-            f"//pysweep.scs",
-            f"include {modelfile}",
-            f'include "{paramfile}"\n',   
-            f'save *:oppoint',
-            f'\n',
-            f'parameters gs=0.498 ds=0.2 L=length*1e-6 Wtot={width}e-6 W=500n nf={NFING}',
-            f'\n',
-            f'vnoi     (vx  0)         vsource dc=0',  
-            f'vdsn     (vdn vx)         vsource dc=ds',   
-            f'vgsn     (vgn 0)         vsource dc=gs',   
-            f'vbsn     (vbn 0)         vsource dc=-sb',  
-            f'vdsp     (vdp vx)         vsource dc=-ds',  
-            f'vgsp     (vgp 0)         vsource dc=-gs',  
-            f'vbsp     (vbp 0)         vsource dc=sb',  
-            f'\n',	 
-            f'\n',	 
-            f'mp (vdp vgp 0 vbp) {modelp} {mp_supplement}',
-            f'\n',	 
-            f'mn (vdn vgn 0 vbn) {modeln} {mn_supplement}',
-            f'\n',	 
-            f'simulatorOptions options gmin=1e-13 reltol=1e-4 vabstol=1e-6 iabstol=1e-10 temp={temp} tnom=27',  
-            f'sweepvds sweep param=ds start=0 stop={VDS_max} step={VDS_step} {{',  
-            f'sweepvgs dc param=gs start=0 stop={VGS_max} step={VGS_step}',  
-            f'}}', 
-            f'sweepvds_noise sweep param=ds start=0 stop={VDS_max} step={VDS_step} {{', 
-            f'	sweepvgs_noise noise freq=1 oprobe=vnoi param=gs start=0 stop={VGS_max} step={VGS_step}', 
-            f'}}'
-        ))
-        with open('pysweep.scs', 'w') as outfile:
-            outfile.write('\n'.join(netlist))
+
+        netlist = self._simulator.generate_netlist(
+            modelfile=modelfile,
+            paramfile=self.paramfile,
+            width=width,
+            modelp=modelp,
+            modeln=modeln,
+            mn_supplement=mn_supplement,
+            mp_supplement=mp_supplement,
+            temp=temp,
+            VDS_max=VDS_max,
+            VDS_step=VDS_step,
+            VGS_max=VGS_max,
+            VGS_step=VGS_step,
+            VSB_max=VSB_max,
+            VSB_step=VSB_step,
+            LEN_VEC=LEN_VEC,
+            NFING=NFING,
+        )        
+
+        with open(self._simulator.netlist_filepath, 'w') as f:
+            f.write(netlist)
     
     @abstractmethod
-    def _generate_outvars(self, n: list=[], p: list=[], n_noise: list=[], p_noise: list=[]) -> tuple[list, list, list, list]:
+    def generate_outvars(self, n: list=[], p: list=[], n_noise: list=[], p_noise: list=[]) -> tuple[list, list, list, list]:
         """ Generate the mapping of output variables from the simulation to the lookup table. 
         
         outvars: `['ID','VT','IGD','IGS','GM','GMB','GDS','CGG','CGS','CSG','CGD','CDG','CGB','CDD','CSS']`
         outvars_noise: `['STH','SFL']`
 
         """
+        sim_type = self._config.get("SIMULATOR", {"TYPE": "spectre"})["TYPE"]
+        mult = -1 if sim_type == "ngspice" else 1
         n.append( ['mn:ids','A',   	[1,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:vth','V',   	[0,    1,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:igd','A',   	[0,    0,   1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
@@ -143,31 +154,31 @@ class SweepConfig(ABC):
         n.append( ['mn:gmbs','S',  	[0,    0,   0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:gds','S',   	[0,    0,   0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:cgg','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,   -1,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:cgd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,   -1,    0,    0,    0,    0  ]])
+        n.append( ['mn:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,   mult*-1,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:cgd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,   mult*-1,    0,    0,    0,    0  ]])
         n.append( ['mn:cgb','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,   -1,    0,    0  ]])
         n.append( ['mn:cdd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        n.append( ['mn:cdg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,   -1,    0,    0,    0  ]])
+        n.append( ['mn:cdg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,   mult*-1,    0,    0,    0  ]])
         n.append( ['mn:css','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        n.append( ['mn:csg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,   -1,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:csg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,   mult*-1,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:cjd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
         n.append( ['mn:cjs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
 
-        p.append( ['mp:ids','A',   	[-1,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:vth','V',   	[ 0,   -1,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:igd','A',   	[ 0,    0,   -1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:igs','A',   	[ 0,    0,    0,   -1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:ids','A',   	[mult*-1,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:vth','V',   	[ 0,   mult*-1,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:igd','A',   	[ 0,    0,   mult*-1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:igs','A',   	[ 0,    0,    0,   mult*-1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         p.append( ['mp:gm','S',    	[ 0,    0,    0,    0,    1,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         p.append( ['mp:gmbs','S',  	[ 0,    0,    0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         p.append( ['mp:gds','S',   	[ 0,    0,    0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         p.append( ['mp:cgg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:cgs','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,   -1,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:cgd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,   -1,    0,    0,    0,    0  ]])
+        p.append( ['mp:cgs','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,   mult*-1,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:cgd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,   mult*-1,    0,    0,    0,    0  ]])
         p.append( ['mp:cgb','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,   -1,    0,    0  ]])
         p.append( ['mp:cdd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        p.append( ['mp:cdg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,   -1,    0,    0,    0  ]])
+        p.append( ['mp:cdg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,   mult*-1,    0,    0,    0  ]])
         p.append( ['mp:css','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        p.append( ['mp:csg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,   -1,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:csg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,   mult*-1,    0,    0,    0,    0,    0  ]])
         p.append( ['mp:cjd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
         p.append( ['mp:cjs','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
         
@@ -178,13 +189,14 @@ class SweepConfig(ABC):
         p_noise.append(['mp:fn', ''])
         return (n, p, n_noise, p_noise)
 
+
 class Config(SweepConfig):
     """ Configuration class for the sweep simulation. """
     def __post_init__(self):
         super().__post_init__()
     
-    def _generate_netlist(self):
-        return super()._generate_netlist()
+    def write_params(self, length: float | str | None = None, sb: float | str | None = None, **kwargs):
+        return super().write_params(length, sb, **kwargs)
     
-    def _generate_outvars(self, *args, **kwargs):
-        return super()._generate_outvars(*args, **kwargs)
+    def generate_outvars(self, *args, **kwargs):
+        return super().generate_outvars(*args, **kwargs)
