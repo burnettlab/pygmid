@@ -4,7 +4,7 @@ import pickle
 import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 import os
 
 import numpy as np
@@ -25,7 +25,7 @@ class Simulator(ABC):
     _config: 'Config' = field(repr=False)   # type: ignore
     netlist_name: str = 'pysweep'
     netlist_ext: str = field(init=False)
-    args: list[str] = field(default_factory=lambda: [os.getcwd()])
+    args: List[str] = field(default_factory=lambda: [os.getcwd()])
     _sweep_dir: str = './sweep'
 
     def __post_init__(self):
