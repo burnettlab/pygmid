@@ -195,7 +195,7 @@ class Config(SweepConfig):
     def __post_init__(self):
         super().__post_init__()
     
-    def write_params(self, length: float | str | None = None, sb: float | str | None = None, **kwargs):
+    def write_params(self, length: Optional[Union[float, str]]=None, sb: Optional[Union[float, str]]=None, **kwargs):
         return super().write_params(length, sb, **kwargs)
     
     def generate_outvars(self, *args, **kwargs):
