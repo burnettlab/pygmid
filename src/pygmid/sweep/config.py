@@ -4,7 +4,7 @@ import json
 from abc import ABC, abstractmethod
 from itertools import chain
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import Optional, Union, List, Tuple
 
 import numpy as np
 
@@ -137,7 +137,7 @@ class SweepConfig(ABC):
             f.write(netlist)
     
     @abstractmethod
-    def generate_outvars(self, n: list=[], p: list=[], n_noise: list=[], p_noise: list=[]) -> tuple[list, list, list, list]:
+    def generate_outvars(self, n: List=[], p: List=[], n_noise: List=[], p_noise: List=[]) -> Tuple[List, List, List, List]:
         """ Generate the mapping of output variables from the simulation to the lookup table. 
         
         outvars: `['ID','VT','IGD','IGS','GM','GMB','GDS','CGG','CGS','CSG','CGD','CDG','CGB','CDD','CSS']`
