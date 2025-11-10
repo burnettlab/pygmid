@@ -31,7 +31,6 @@ class Sweep:
             self._config = Config(self.config_file_path)
         
         self._config._write_netlist()
-        # raise NotImplementedError("Erroring before running sweep")
 
     @property
     def _simulator(self) -> Simulator:

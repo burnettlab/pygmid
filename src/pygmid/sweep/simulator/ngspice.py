@@ -364,9 +364,9 @@ class ngspiceSimulator(Simulator):
 
         df.columns = df.columns.str.replace('[dc]', '')
         df.columns = df.columns.str.replace('onoise..', 'n')
-        df.columns = df.columns.str.removeprefix('@')
-        df.columns = df.columns.str.removeprefix('n.xm1.n')
-        df.columns = df.columns.str.removeprefix('n.xm2.n')
+        df.columns = df.columns.str.replace('@', '')
+        df.columns = df.columns.str.replace('n.xm1.n', '')
+        df.columns = df.columns.str.replace('n.xm2.n', '')
 
         key_mappings: Dict[str, str] = {
             'gmb': 'gmbs',
@@ -383,9 +383,9 @@ class ngspiceSimulator(Simulator):
             dev_type = self._config['MODEL'][dev_name]
             # ngspice sweep order is l, vgs, vds, vsb
             dev_df = df.filter(regex=f'^{dev_type}')
-            dev_df.columns = dev_df.columns.str.removeprefix(dev_type)
-            dev_df.columns = dev_df.columns.str.removeprefix('[')
-            dev_df.columns = dev_df.columns.str.removesuffix(']')
+            dev_df.columns = dev_df.columns.str.replace(dev_type, '')
+            dev_df.columns = dev_df.columns.str.replace('[', '')
+            dev_df.columns = dev_df.columns.str.replace(']', '')
 
             dev = dev_name[-1].lower()
             l = np.unique(dev_df['l']) * 1e6    # convert to microns
