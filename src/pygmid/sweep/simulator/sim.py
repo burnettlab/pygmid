@@ -101,7 +101,7 @@ class Simulator(ABC):
             if file_ext == '.mat':
                 scipy.io.savemat(filename, data)
             elif file_ext == '.pkl':
-                with open(filename, 'rb') as f:
+                with open(filename, 'wb') as f:
                     pickle.dump(data, f)
             elif file_ext == '.hdf5':
                 with h5py.File(filename, 'w') as f:
