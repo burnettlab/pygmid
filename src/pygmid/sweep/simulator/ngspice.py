@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 import subprocess
-from typing import Tuple, Dict
+from typing import Tuple
 from time import sleep
 
 import numpy as np
@@ -11,7 +11,7 @@ import pandas as pd
 from .sim import Simulator, multiline_join
 
 
-class ngspiceSimulator(Simulator):
+class NGSpiceSimulator(Simulator):
     """ NGSPICE simulator class for technology sweeps. """
     netlist_ext: str = 'spice'
 
@@ -84,80 +84,26 @@ class ngspiceSimulator(Simulator):
         op
         show
         write pysweep.raw
-        .endc""", 
-        f"""
-        .save @n.xm1.n{kwargs['modeln']}[cdd]
-        .save @n.xm1.n{kwargs['modeln']}[cgb]
-        .save @n.xm1.n{kwargs['modeln']}[cgd]
-        .save @n.xm1.n{kwargs['modeln']}[cgdol]
-        .save @n.xm1.n{kwargs['modeln']}[cgg]
-        .save @n.xm1.n{kwargs['modeln']}[cgs]
-        .save @n.xm1.n{kwargs['modeln']}[cgsol]
-        .save @n.xm1.n{kwargs['modeln']}[cjd]
-        .save @n.xm1.n{kwargs['modeln']}[cjs]
-        .save @n.xm1.n{kwargs['modeln']}[css]
-        .save @n.xm1.n{kwargs['modeln']}[gds]
-        .save @n.xm1.n{kwargs['modeln']}[gm]
-        .save @n.xm1.n{kwargs['modeln']}[gmb]
-        .save @n.xm1.n{kwargs['modeln']}[ids]
-        .save @n.xm1.n{kwargs['modeln']}[igd]
-        .save @n.xm1.n{kwargs['modeln']}[igs]
-        .save @n.xm1.n{kwargs['modeln']}[l]
-        .save @n.xm1.n{kwargs['modeln']}[sfl]
-        .save @n.xm1.n{kwargs['modeln']}[sid]
-        .save @n.xm1.n{kwargs['modeln']}[vth]
+        .endc""",
+        "\n".join(map(lambda l: "        .save @" + f"{kwargs['modeln']}[".join(l[0].split(':')) + "]", self._config['n']))
+        + f"""
         .save @vbn[dc]
         .save @vdn[dc]
         .save @vgn[dc]
-        .save gn dn bn nn
-        """,
-        f"""
-        .save @n.xm2.n{kwargs['modelp']}[cdd]
-        .save @n.xm2.n{kwargs['modelp']}[cgb]
-        .save @n.xm2.n{kwargs['modelp']}[cgd]
-        .save @n.xm2.n{kwargs['modelp']}[cgdol]
-        .save @n.xm2.n{kwargs['modelp']}[cgg]
-        .save @n.xm2.n{kwargs['modelp']}[cgs]
-        .save @n.xm2.n{kwargs['modelp']}[cgsol]
-        .save @n.xm2.n{kwargs['modelp']}[cjd]
-        .save @n.xm2.n{kwargs['modelp']}[cjs]
-        .save @n.xm2.n{kwargs['modelp']}[css]
-        .save @n.xm2.n{kwargs['modelp']}[gds]
-        .save @n.xm2.n{kwargs['modelp']}[gm]
-        .save @n.xm2.n{kwargs['modelp']}[gmb]
-        .save @n.xm2.n{kwargs['modelp']}[ids]
-        .save @n.xm2.n{kwargs['modelp']}[igd]
-        .save @n.xm2.n{kwargs['modelp']}[igs]
-        .save @n.xm2.n{kwargs['modelp']}[l]
-        .save @n.xm2.n{kwargs['modelp']}[sfl]
-        .save @n.xm2.n{kwargs['modelp']}[sid]
-        .save @n.xm2.n{kwargs['modelp']}[vth]
+        .save gn dn bn nn\n"""
+        + "\n".join(map(lambda l: "        .save onoise." + f"{kwargs['modeln']}[".join(l[0].split(':')) + "]", self._config['n_noise'])),
+        "\n".join(map(lambda l: "        .save @" + f"{kwargs['modelp']}[".join(l[0].split(':')) + "]", self._config['p']))
+        + f"""
         .save @vbp[dc]
         .save @vdp[dc]
         .save @vgp[dc]
-        .save gp dp bp np
-        """,
+        .save gp dp bp np\n"""
+        + "\n".join(map(lambda l: "        .save onoise." + f"{kwargs['modeln']}[".join(l[0].split(':')) + "]", self._config['p_noise'])), 
         """
         .control
         quit
         .endc
         """
-        # set sqrnoise
-        # noise v(n) vgn dec 1 1 1e11 1
-        # noise v(n) vgp dec 1 1 1e11 1
-
-        # .save all
-        # .save @n.xm1.n{kwargs['modeln']}[sfl]
-        # .save @n.xm1.n{kwargs['modeln']}[sid]
-        # .save @n.xm1.n{kwargs['modeln']}[gm]
-        # .save @n.xm1.n{kwargs['modeln']}[id]
-        # .save @n.xm2.n{kwargs['modelp']}[sfl]
-        # .save @n.xm2.n{kwargs['modelp']}[sid]
-        # .save @n.xm2.n{kwargs['modelp']}[gm]
-        # .save @n.xm2.n{kwargs['modelp']}[id]
-
-        # write noisetest_{'_'.join(self._config['MODEL']['MODELN'].split('_'))}.raw noise1.all
-        # wrdata noisetest_{'_'.join(self._config['MODEL']['MODELN'].split('_'))}.txt noise1.all
         ]
         comp_codes = [
         """
@@ -241,19 +187,15 @@ class ngspiceSimulator(Simulator):
         C {devices/ccvs.sym} 890 -250 0 0 {name=Hn vnam=vdn value=1}
         C {devices/ccvs.sym} 1890 -340 0 0 {name=Hp vnam=vdp value=1}
         C {"""+rf"{self.symbol_dir}/{kwargs['modeln']}.sym"+r"""} 600 -340 2 1 {name=M1
-        l=\{lx\}
-        w=\{wx\}
-        ng=1
-        m=1
-        """ + f"""model={kwargs['modeln']}
+        """ + f"""
+        {kwargs['mn_supplement']}
+        model={kwargs['modeln']}
         """ + """spiceprefix=X
         }
         C {"""+f"{self.symbol_dir}/{kwargs['modelp']}.sym"+r"""} 1600 -250 2 1 {name=M2
-        l=\{lx\}
-        w=\{wx\}
-        ng=1
-        m=1
-        """ + f"""model={kwargs['modelp']}
+        """ + f"""
+        {kwargs['mp_supplement']}
+        model={kwargs['modelp']}
         """ + """spiceprefix=X
         }
         C {devices/code_shown.sym} 50 -10 0 0 {name=MODEL only_toplevel=true
@@ -363,28 +305,16 @@ class ngspiceSimulator(Simulator):
         df = df.apply(pd.to_numeric)
 
         df.columns = df.columns.str.replace('[dc]', '')
-        df.columns = df.columns.str.replace('onoise..', 'n')
+        df.columns = df.columns.str.replace('onoise.', '')
         df.columns = df.columns.str.replace('@', '')
-        df.columns = df.columns.str.replace('n.xm1.n', '')
-        df.columns = df.columns.str.replace('n.xm2.n', '')
 
-        key_mappings: Dict[str, str] = {
-            'gmb': 'gmbs',
-            'cgd': 'cdg',
-            'cdg': 'cgd',
-            'cgs': 'csg',
-            'csg': 'cgs',
-            'sid': 'id',
-            'sfl': 'fn',
-        }
-        
         output_dicts = []
         for dev_name in ("MODELN", "MODELP"):
             dev_type = self._config['MODEL'][dev_name]
             # ngspice sweep order is l, vgs, vds, vsb
-            dev_df = df.filter(regex=f'^{dev_type}')
+            dev_df = df.filter(regex=f'{dev_type}')
             dev_df.columns = dev_df.columns.str.replace(dev_type, '')
-            dev_df.columns = dev_df.columns.str.replace('[', '')
+            dev_df.columns = dev_df.columns.str.replace(':', '')
             dev_df.columns = dev_df.columns.str.replace(']', '')
 
             dev = dev_name[-1].lower()
@@ -398,14 +328,6 @@ class ngspiceSimulator(Simulator):
             assert np.all(np.isclose(vsb, self._config['SWEEP']['VSB'])), f"VSB sweep values do not match configuration. (Expected {self._config['SWEEP']['VSB']}, got {vsb})"
             dims = [len(l), len(vgs), len(vds), len(vsb)]
 
-            dev_dict = dict(map(lambda item: (f"m{dev}:{item[0]}", np.reshape(item[1], dims)), dev_df.to_dict(orient='list').items()))
-            dev_dict[f"m{dev}:cgg"] += dev_dict[f"m{dev}:cgdol"] + dev_dict[f"m{dev}:cgsol"]
-            dev_dict[f"m{dev}:cgd"] += dev_dict[f"m{dev}:cgdol"]
-            dev_dict[f"m{dev}:cgs"] += dev_dict[f"m{dev}:cgsol"]
-            dev_dict[f"m{dev}:cdd"] += dev_dict[f"m{dev}:cjd"] + dev_dict[f"m{dev}:cgdol"]
-            dev_dict[f"m{dev}:css"] += dev_dict[f"m{dev}:cjs"] + dev_dict[f"m{dev}:cgsol"]
-            dev_dict.update(map(lambda item: (f"m{dev}:{item[1]}", dev_dict[f"m{dev}:{item[0]}"].copy()), filter(lambda item: f"m{dev}:{item[0]}" in dev_dict, key_mappings.items())))
-
-            output_dicts.append(dev_dict)
+            output_dicts.append(dict(map(lambda item: (item[0], np.reshape(item[1], dims)), dev_df.to_dict(orient='list').items())))
 
         return tuple(output_dicts)

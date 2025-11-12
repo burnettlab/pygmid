@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, Tuple, List
 import os
+import scipy.io
+import h5py
 
 import numpy as np
 
@@ -88,10 +90,26 @@ class Simulator(ABC):
             print(f"Could not perform cleanup:\nFile - {e.filename}\nError - {e.strerror}")
 
         # then save data to file
-        modeln_file_path = f"{self._config['MODEL']['SAVEFILEN']}.pkl"
-        modelp_file_path = f"{self._config['MODEL']['SAVEFILEP']}.pkl"
-        with open(modeln_file_path, 'wb') as f:
-            pickle.dump(nch, f)
-        with open(modelp_file_path, 'wb') as f:
-            pickle.dump(pch, f)
-        return (modeln_file_path, modelp_file_path)
+        model_paths = []
+
+        for savefile, data in zip([self._config['MODEL']['SAVEFILEN'], self._config['MODEL']['SAVEFILEP']], [nch, pch]):
+            file_root, file_ext = os.path.splitext(savefile)
+            if not file_ext:
+                file_ext = '.pkl'
+
+            filename = f"{file_root}{file_ext}"
+            if file_ext == '.mat':
+                scipy.io.savemat(filename, data)
+            elif file_ext == '.pkl':
+                with open(filename, 'rb') as f:
+                    pickle.dump(data, f)
+            elif file_ext == '.hdf5':
+                with h5py.File(filename, 'w') as f:
+                    for key, value in data.items():
+                        f.create_dataset(key, data=value)
+            else:
+                raise TypeError(f'Filetype {file_ext} not supported (only .mat, .pkl and .hdf5)')
+            
+            model_paths.append(filename)
+
+        return tuple(model_paths)

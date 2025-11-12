@@ -97,7 +97,7 @@ class Lookup:
         return None
 
     def __contains__(self, key):
-        return key.upper() in self.__DATA.keys()
+        return key.upper() in self.__DATA.keys() or any(isinstance(v, dict) and key.upper() in v for v in self.__DATA.values())
 
     def __getitem__(self, key):
         """
@@ -108,7 +108,11 @@ class Lookup:
         if key not in self:
             raise ValueError(f"Lookup table does not contain this data")
 
-        return np.copy(self.__DATA[key.upper()])
+        if key.upper() in self.__DATA:
+            return np.copy(self.__DATA[key.upper()])
+        else:
+            k = next(filter(lambda x: isinstance(self.__DATA[x], dict) and key.upper() in self.__DATA[x], self.__DATA.keys()))
+            return np.copy(self.__DATA[k][key]) 
 
     def __setitem__(self, key, value):
         """
@@ -116,10 +120,14 @@ class Lookup:
         pseudo array access to member data. Sets the member data
         to the value passed.
         """
-        if key.upper() not in self.__DATA.keys():
+        if key not in self:
             raise ValueError(f"Lookup table does not contain this data")
-
-        self.__DATA[key.upper()] = np.copy(value)
+        
+        if key.upper() in self.__DATA:
+            self.__DATA[key.upper()] = np.copy(value)
+        else:
+            k = next(filter(lambda x: isinstance(self.__DATA[x], dict) and key.upper() in self.__DATA[x], self.__DATA.keys()))
+            self.__DATA[k][key] = np.copy(value) 
 
     def _modeset(self, outkey, varkey):
         """

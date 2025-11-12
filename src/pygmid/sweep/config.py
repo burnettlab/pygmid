@@ -18,6 +18,13 @@ def matrange(start, step, stop):
     
     return np.linspace(start, stop, num)
 
+def num_conv(v):
+    for t in (int, float, str):
+        try:
+            return t(v)
+        except ValueError:
+            continue
+
 def toupper(optionstr: str) -> str:
     return optionstr.upper()
 
@@ -32,7 +39,7 @@ class SweepConfig(ABC):
     def __post_init__(self):
         self._configParser.optionxform = toupper	
         self._configParser.read(self.config_file_path)
-        self._config = {s:dict(self._configParser.items(s)) for s in self._configParser.sections()}
+        self._config = {s:dict(map(lambda e: (e[0], num_conv(e[1])), self._configParser.items(s))) for s in self._configParser.sections()}
         self._parse_ranges()
         
         self._config['outvars'] = 	['ID','VT','IGD','IGS','GM','GMB','GDS','CGG','CGS','CSG','CGD','CDG','CGB','CDD','CSS']
@@ -68,7 +75,8 @@ class SweepConfig(ABC):
         self._config['SWEEP']['NFING'] = int(self._config['SWEEP']['NFING'])
     
     def generate_m_dict(self):
-        return {
+        m_dict = self._config.get('SPEC', {})
+        m_dict.update({
             'INFO' : self._config['MODEL']['INFO'],
             'CORNER' : self._config['MODEL']['CORNER'],
             'TEMP' : self._config['MODEL']['TEMP'],
@@ -78,7 +86,8 @@ class SweepConfig(ABC):
             'VGS' : np.array(self._config['SWEEP']['VGS']).T,
             'VDS' : np.array(self._config['SWEEP']['VDS']).T,
             'VSB' : np.array(self._config['SWEEP']['VSB']).T 
-        }
+        })
+        return m_dict.copy()
 
     @abstractmethod
     def write_params(self, length: Optional[Union[float, str]] = None, sb: Optional[Union[float, str]] = None, **kwargs):
@@ -144,8 +153,24 @@ class SweepConfig(ABC):
         outvars_noise: `['STH','SFL']`
 
         """
-        sim_type = self._config.get("SIMULATOR", {"TYPE": "spectre"})["TYPE"]
-        mult = -1 if sim_type == "ngspice" else 1
+        pass
+
+
+class SpectreConfig(SweepConfig):
+    """ Configuration class for sweep simulations using Spectre. """
+    def __post_init__(self):
+        super().__post_init__()
+    
+    def write_params(self, length: Optional[Union[float, str]]=None, sb: Optional[Union[float, str]]=None, **kwargs):
+        return super().write_params(length, sb, **kwargs)
+    
+    def generate_outvars(self, n: List=[], p: List=[], n_noise: List=[], p_noise: List=[]) -> Tuple[List, List, List, List]:
+        """ Generate the mapping of output variables from the simulation to the lookup table. 
+        
+        outvars: `['ID','VT','IGD','IGS','GM','GMB','GDS','CGG','CGS','CSG','CGD','CDG','CGB','CDD','CSS']`
+        outvars_noise: `['STH','SFL']`
+
+        """
         n.append( ['mn:ids','A',   	[1,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:vth','V',   	[0,    1,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:igd','A',   	[0,    0,   1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
@@ -154,31 +179,31 @@ class SweepConfig(ABC):
         n.append( ['mn:gmbs','S',  	[0,    0,   0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:gds','S',   	[0,    0,   0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:cgg','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,   mult*-1,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['mn:cgd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,   mult*-1,    0,    0,    0,    0  ]])
+        n.append( ['mn:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,   -1,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:cgd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,   -1,    0,    0,    0,    0  ]])
         n.append( ['mn:cgb','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,   -1,    0,    0  ]])
         n.append( ['mn:cdd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        n.append( ['mn:cdg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,   mult*-1,    0,    0,    0  ]])
+        n.append( ['mn:cdg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,   -1,    0,    0,    0  ]])
         n.append( ['mn:css','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        n.append( ['mn:csg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,   mult*-1,    0,    0,    0,    0,    0  ]])
+        n.append( ['mn:csg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,   -1,    0,    0,    0,    0,    0  ]])
         n.append( ['mn:cjd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
         n.append( ['mn:cjs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
 
-        p.append( ['mp:ids','A',   	[mult*-1,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:vth','V',   	[ 0,   mult*-1,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:igd','A',   	[ 0,    0,   mult*-1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:igs','A',   	[ 0,    0,    0,   mult*-1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:ids','A',   	[-1,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:vth','V',   	[ 0,   -1,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:igd','A',   	[ 0,    0,   -1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:igs','A',   	[ 0,    0,    0,   -1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         p.append( ['mp:gm','S',    	[ 0,    0,    0,    0,    1,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         p.append( ['mp:gmbs','S',  	[ 0,    0,    0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         p.append( ['mp:gds','S',   	[ 0,    0,    0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         p.append( ['mp:cgg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:cgs','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,   mult*-1,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['mp:cgd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,   mult*-1,    0,    0,    0,    0  ]])
+        p.append( ['mp:cgs','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,   -1,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:cgd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,   -1,    0,    0,    0,    0  ]])
         p.append( ['mp:cgb','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,   -1,    0,    0  ]])
         p.append( ['mp:cdd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        p.append( ['mp:cdg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,   mult*-1,    0,    0,    0  ]])
+        p.append( ['mp:cdg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,   -1,    0,    0,    0  ]])
         p.append( ['mp:css','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        p.append( ['mp:csg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,   mult*-1,    0,    0,    0,    0,    0  ]])
+        p.append( ['mp:csg','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,   -1,    0,    0,    0,    0,    0  ]])
         p.append( ['mp:cjd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
         p.append( ['mp:cjs','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
         
@@ -188,15 +213,65 @@ class SweepConfig(ABC):
         p_noise.append(['mp:id', ''])
         p_noise.append(['mp:fn', ''])
         return (n, p, n_noise, p_noise)
-
-
-class Config(SweepConfig):
-    """ Configuration class for the sweep simulation. """
+    
+class NGSpiceConfig(SweepConfig):
+    """ Configuration class for sweep simulations using ngspice. """
     def __post_init__(self):
         super().__post_init__()
     
     def write_params(self, length: Optional[Union[float, str]]=None, sb: Optional[Union[float, str]]=None, **kwargs):
         return super().write_params(length, sb, **kwargs)
     
-    def generate_outvars(self, *args, **kwargs):
-        return super().generate_outvars(*args, **kwargs)
+    def generate_outvars(self, n: List=[], p: List=[], n_noise: List=[], p_noise: List=[]) -> Tuple[List, List, List, List]:
+        """ Generate the mapping of output variables from the simulation to the lookup table. 
+        
+        outvars: `['ID','VT','IGD','IGS','GM','GMB','GDS','CGG','CGS','CSG','CGD','CDG','CGB','CDD','CSS']`
+        outvars_noise: `['STH','SFL']`
+
+        """
+        n.append( ['n.xm1.n:ids','A',   	[1,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:vth','V',   	[0,    1,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:igd','A',   	[0,    0,   1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:igs','A',   	[0,    0,   0,    1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:gm','S',    	[0,    0,   0,    0,    1,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:gmb','S',  	    [0,    0,   0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:gds','S',   	[0,    0,   0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:cgg','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:cgdol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    1,    0,    0,    1,    0  ]])
+        n.append( ['n.xm1.n:cgsol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    1,    0,    0,    0,    0,    0,    1  ]])
+        n.append( ['n.xm1.n:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    1,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:cgd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    1,    0,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:cgb','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    1,    0,    0  ]])
+        n.append( ['n.xm1.n:cdd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
+        n.append( ['n.xm1.n:cdg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    1,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:css','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
+        n.append( ['n.xm1.n:csg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    1,    0,    0,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:cjd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
+        n.append( ['n.xm1.n:cjs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
+
+        p.append( ['n.xm2.n:ids','A',   	[1,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:vth','V',   	[0,    1,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:igd','A',   	[0,    0,   1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:igs','A',   	[0,    0,   0,    1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:gm','S',    	[0,    0,   0,    0,    1,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:gmb','S',  	    [0,    0,   0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:gds','S',   	[0,    0,   0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:cgg','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:cgdol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    1,    0,    0,    1,    0  ]])
+        p.append( ['n.xm2.n:cgsol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    1,    0,    0,    0,    0,    0,    1  ]])
+        p.append( ['n.xm2.n:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    1,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:cgd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    1,    0,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:cgb','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    1,    0,    0  ]])
+        p.append( ['n.xm2.n:cdd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
+        p.append( ['n.xm2.n:cdg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    1,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:css','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
+        p.append( ['n.xm2.n:csg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    1,    0,    0,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:cjd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
+        p.append( ['n.xm2.n:cjs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
+        
+        n_noise.append(['n.xm1.n:id', ''])
+        n_noise.append(['n.xm1.n:1overf', ''])
+        
+        p_noise.append(['n.xm2.n:id', ''])
+        p_noise.append(['n.xm2.n:1overf', ''])
+        return (n, p, n_noise, p_noise)

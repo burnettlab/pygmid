@@ -1,4 +1,4 @@
 from .__main__ import run
-from .config import Config, SweepConfig
+from .config import SweepConfig
 
-__all__ = ['run', 'Config', 'SweepConfig']
+__all__ = ['run', 'SweepConfig']
