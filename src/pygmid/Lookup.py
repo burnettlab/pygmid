@@ -1,17 +1,21 @@
 import copy
+import os
+import pickle
+import glob
+from itertools import chain
 
+import h5py
 import numpy as np
+import prettytable
 import scipy.io
 from scipy.interpolate import interpn
-import pickle
-import prettytable
-import h5py
 
 from .constants import *
-from .numerical import interp1
+from .numerical import interp1, num_conv, convert_temp
+
 
 class Lookup:
-    def __init__(self, filename="MOS.mat", **kwargs):
+    def __init__(self, filename=None, **kwargs):
         self.__setup(filename, **kwargs)
         self.__modefuncmap = {1 : self._SimpleLK,
                               2 : self._SimpleLK,  
@@ -33,7 +37,7 @@ class Lookup:
             used for interpolation at the end of lookup
             mode 3. pchip by default
         """
-        data = self.__load(filename)
+        data = self.__load(filename, **kwargs)
         if data is not None:
             self.__DATA = data
         else:
@@ -52,7 +56,7 @@ class Lookup:
             'VDB'   :   kwargs.get('VDB', None)
         }
 
-    def __load(self, filename):
+    def __load(self, filename, device=None, **kwargs):
         """
         Function to load data from file
 
@@ -71,6 +75,10 @@ class Lookup:
         Returns:
             LUT data structure when file type supported, None otherwise
         """
+        if filename is None:
+            techsweep_dir = os.getenv("TECHSWEEP_DIR", os.path.expandvars("$PDK_ROOT/techsweeps"))
+            filename = f"{techsweep_dir}/{next(chain.from_iterable(map(lambda ext: glob.iglob(f'*{ext}', root_dir=techsweep_dir), ['.h5', '.hdf5', '.mat', '.pkl'])))}"
+
         if filename.endswith('.mat'):
             # parse .mat file into dict object
             mat = scipy.io.loadmat(filename, matlab_compatible=True)
@@ -86,12 +94,40 @@ class Lookup:
                 data = pickle.load(f)
                 return data
 
-        elif filename.endswith('.hdf5'):
+        elif any(filename.endswith(ext) for ext in ['.h5', '.hdf5']):
             with h5py.File(filename, 'r') as f:
-                data = {k.upper():copy.deepcopy(np.squeeze(f[k][()])) for k in f.keys()}
+                grp = f
+                while len(env_keys := set(map(lambda k: k.split(":")[0], grp.keys()))) == 1:    # type: ignore
+                    key_vals = set(map(lambda k: k.split(":")[1], grp.keys()))      # type: ignore
+                    k = next(iter(env_keys))
+                    env_val = kwargs.get(k.upper(), globals().get(k.upper(), os.getenv(k.upper())))
+                    if k == 'TEMP':
+                        env_val = convert_temp(env_val, temp_unit=os.getenv('TEMP_UNIT', 'C'))
+                    else:
+                        env_val = num_conv(env_val)
+
+                    if isinstance(env_val, str):
+                        # print("Using string key for lookup:", env_val)
+                        key = env_val
+                    else:
+                        # print(f"Using numeric key for lookup: {k} = {env_val}")
+                        # find closest match that doesn't exceed the value
+                        key = min(map(lambda x: num_conv(x), key_vals), key=lambda x: x - env_val if k != 'VDD' or env_val <= x or np.isclose(x, env_val) else float('inf'))   # type: ignore
+                    grp = grp[f"{k}:{key}"]   # type: ignore
+                    
+                if device is None and set(grp.keys()) == {'n', 'p'}:    # type: ignore
+                    raise ValueError("Device type must be specified when both n and p data are present in the file.")
+                else:
+                    grp = grp[device]   # type: ignore
+
+                # print(list(map(lambda i: (i[0], i[1].shape), grp.items())))
+                data = dict(map(lambda i: (i[0].upper(), copy.deepcopy(np.squeeze(i[1][()]))), grp.items()))   # type: ignore
+                for k, v in filter(lambda i: i[1].size == 1, data.items()):
+                    data[k] = num_conv(v.item())
+                # data = {k.upper(): copy.deepcopy(np.squeeze(grp[k][()])) for k in grp.keys()}   # type: ignore
                 return data
         else:
-            print('File not supported (only .mat, .pkl and .hdf5)')
+            print('File not supported (only .mat, .pkl, .h5 and .hdf5)')
 
         # !TODO add functionality to load other data structures
         return None
@@ -444,14 +480,18 @@ class Lookup:
                     dimensions
         """
         return self.look_up('SFL_STH', **kwargs)
+        
+    def __repr__(self) -> str:
+        return f"PyGMID_Lookup<{self.__DATA['INFO']}>"
 
     def __str__(self):
-
         tab = prettytable.PrettyTable()
+        tab.title = f"PyGMID: {self.__DATA['INFO']}"
         tab.field_names = ['Variable', 'Size', 'Min', 'Max']
 
         for k, v in self.__DATA.items():
-
+            if not hasattr(v, 'dtype'):
+                continue
             is_numeric = np.issubdtype(v.dtype, np.number)
 
             size = None

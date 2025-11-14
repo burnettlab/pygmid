@@ -9,6 +9,7 @@ from typing import Optional, Union, List, Tuple
 import numpy as np
 
 from .simulator import SIMULATORS, Simulator
+from ..numerical import num_conv
 
 LENGTH_PRECISION = 0.005  # in microns
 
@@ -17,13 +18,6 @@ def matrange(start, step, stop):
     num = round((stop - start) / step + 1)
     
     return np.linspace(start, stop, num)
-
-def num_conv(v):
-    for t in (int, float, str):
-        try:
-            return t(v)
-        except ValueError:
-            continue
 
 def toupper(optionstr: str) -> str:
     return optionstr.upper()
