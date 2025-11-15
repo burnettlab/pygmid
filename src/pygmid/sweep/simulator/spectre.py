@@ -41,7 +41,7 @@ class SpectreSimulator(Simulator):
         self._output = f"{self._sweep_dir}/psf_{length}_{sb}"
 
     def generate_netlist(self, **kwargs) -> str:
-        return multiline_join(f"""//pysweep.scs
+        return f"""//pysweep.scs
 include {kwargs['modelfile']}
 include "{kwargs['paramfile']}"
 
@@ -67,7 +67,7 @@ sweepvds sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS_step'
         """ + "{{" + f"sweepvgs dc param=gs start=0 stop={kwargs['VGS_max']} step={kwargs['VGS_step']}" + "}}" + \
         f"""
 sweepvds_noise sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS_step']}
-        """ + "{{" + f"sweepvgs_noise noise freq=1 oprobe=vnoi param=gs start=0 stop={kwargs['VGS_max']} step={kwargs['VGS_step']}" + "}}")
+        """ + "{{" + f"sweepvgs_noise noise freq=1 oprobe=vnoi param=gs start=0 stop={kwargs['VGS_max']} step={kwargs['VGS_step']}" + "}}"
 
     def run(self):
         Ls = self._config['SWEEP']['LENGTH']
