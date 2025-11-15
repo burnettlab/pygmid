@@ -9,7 +9,7 @@ from typing import Optional, Union, List, Tuple
 import numpy as np
 
 from .simulator import SIMULATORS, Simulator
-from ..numerical import num_conv
+from ..numerical import num_conv, convert_temp
 
 LENGTH_PRECISION = 0.005  # in microns
 
@@ -106,7 +106,7 @@ class SweepConfig(ABC):
         except json.decoder.JSONDecodeError:
             raise SyntaxError("Error parsing config: make sure MP has no weird characters in it, and that the list isn't terminated with a trailing ','")
         
-        temp = float(self._config['MODEL']['TEMP']) - 273.15
+        temp = convert_temp(self._config['MODEL']['TEMP'])
         VDS_max = max(self._config['SWEEP']['VDS'])
         VDS_step = np.round(self._config['SWEEP']['VDS'][1] - self._config['SWEEP']['VDS'][0], 6)
         VGS_max = max(self._config['SWEEP']['VGS'])
