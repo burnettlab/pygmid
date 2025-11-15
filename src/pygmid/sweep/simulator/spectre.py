@@ -47,7 +47,7 @@ include "{kwargs['paramfile']}"
 
 save *:oppoint
 
-parameters gs=0.498 ds=0.2 L=length*1e-6 Wtot={kwargs['width']}e-6 W={kwargs['width']/kwargs['NFING']}e-6 nf={kwargs['NFING']}
+parameters gs=0.0 ds=0.0 L=length*1e-6 Wtot={kwargs['width']}e-6 W={kwargs['width']/kwargs['NFING']}e-6 nf={kwargs['NFING']}
 
 vnoi     (vx  0)         vsource dc=0
 vdsn     (vdn vx)         vsource dc=ds
@@ -64,9 +64,9 @@ mn (vdn vgn 0 vbn) {kwargs['modeln']} {kwargs['mn_supplement']}
 
 simOptions options gmin=1e-13 reltol=1e-4 vabstol=1e-6 iabstol=1e-10 temp={kwargs['temp']-273.15} tnom=27
 sweepvds sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS_step']} """ + \
-        "{" + f"\n\tsweepvgs dc param=gs start=0 stop={kwargs['VGS_max']} step={kwargs['VGS_step']}" + "}" + f"""
+        "{" + f"\tsweepvgs dc param=gs start=0 stop={kwargs['VGS_max']} step={kwargs['VGS_step']}" + "\n}" + f"""
 sweepvds_noise sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS_step']} """ + \
-        "{" + f"\n\tsweepvgs_noise noise freq=1 oprobe=vnoi param=gs start=0 stop={kwargs['VGS_max']} step={kwargs['VGS_step']}" + "}"
+        "{" + f"\tsweepvgs_noise noise freq=1 oprobe=vnoi param=gs start=0 stop={kwargs['VGS_max']} step={kwargs['VGS_step']}" + "\n}"
 
     def run(self):
         Ls = self._config['SWEEP']['LENGTH']
