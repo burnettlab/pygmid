@@ -62,7 +62,7 @@ mp (vdp vgp 0 vbp) {kwargs['modelp']} {kwargs['mp_supplement']}
 
 mn (vdn vgn 0 vbn) {kwargs['modeln']} {kwargs['mn_supplement']}
 
-simulatorOptions options gmin=1e-13 reltol=1e-4 vabstol=1e-6 iabstol=1e-10 temp={kwargs['temp']-273.15} tnom=27
+simOptions options gmin=1e-13 reltol=1e-4 vabstol=1e-6 iabstol=1e-10 temp={kwargs['temp']-273.15} tnom=27
 sweepvds sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS_step']} """ + \
         "{" + f"\n\tsweepvgs dc param=gs start=0 stop={kwargs['VGS_max']} step={kwargs['VGS_step']}" + "}" + f"""
 sweepvds_noise sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS_step']} """ + \
