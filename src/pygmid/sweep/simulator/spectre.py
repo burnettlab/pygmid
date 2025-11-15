@@ -27,7 +27,7 @@ class SpectreSimulator(Simulator):
             '-raw', 
             f'{self._sweep_dir}/psf',
         ]
-        self.__post_init__()
+        super().__post_init__()
     
     @property
     def output(self) -> str:

@@ -24,7 +24,7 @@ class NGSpiceSimulator(Simulator):
             self.logfile,
             self.netlist_filepath,
         ]
-        self.__post_init__()
+        super().__post_init__()
 
     @property
     def output(self) -> str:
