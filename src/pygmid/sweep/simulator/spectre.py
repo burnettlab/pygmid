@@ -4,7 +4,6 @@ import logging
 import multiprocessing as mp
 import os
 import re
-import shutil
 import subprocess
 from typing import Tuple
 
@@ -36,7 +35,7 @@ class SpectreSimulator(Simulator):
         return self._output
     
     @output.setter
-    def output_setter(self, args: Tuple):
+    def output(self, args: Tuple):
         length, sb = map(lambda a: a[0] if a[0] is not None else a[1], zip(args, self.output.split("_")[-2:]))
         self._output = f"{self._sweep_dir}/psf_{length}_{sb}"
 
