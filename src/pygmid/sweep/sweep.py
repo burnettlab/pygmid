@@ -19,12 +19,12 @@ class Sweep:
         print(f"Searching for config in directory: {cfg_dir}")
         for f in filter(lambda p: p.suffix == ".py", map(lambda p: Path(p), os.listdir(cfg_dir))):
             # Import the file and check if it has a class that is a subclass of Config
-            if rel_path := os.path.relpath(cfg_dir, os.getcwd()):
+            if (rel_path := os.path.relpath(cfg_dir, os.getcwd())) != ".":
                 module_name = f"{rel_path.replace(os.sep, '.')}.{f.stem}"
             else:
                 module_name = f".{f.stem}"
-            print(f"Trying to load module: {module_name} ({Path(module_name.replace('.', os.sep)).absolute().as_posix().replace('/', '.').rstrip('.py')})")
-            module = import_module(Path(module_name.replace('.', os.sep)).absolute().as_posix().replace('/', '.').rstrip('.py'))
+            print(f"Trying to load module: {module_name}")
+            module = import_module(module_name, __package__)
             try:
                 cls = next(filter(lambda c: isinstance(c, type) and issubclass(c, SweepConfig) and c != SweepConfig, map(lambda n: getattr(module, n), filter(lambda n: not n.startswith("__") and not n.endswith("__"), dir(module)))))
                 self._config = cls(self.config_file_path)
