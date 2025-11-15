@@ -98,11 +98,11 @@ class SweepConfig(ABC):
         modelp = self._config['MODEL']['MODELP']
         modeln = self._config['MODEL']['MODELN']
         try:
-            mn_supplement = '\\\n\t'.join(json.loads(self._config['MODEL']['MN']))
+            mn_supplement = ' \\\n\t'.join(json.loads(self._config['MODEL']['MN']))
         except json.decoder.JSONDecodeError:
             raise SyntaxError("Error parsing config: make sure MN has no weird characters in it, and that the list isn't terminated with a trailing ','")
         try:
-            mp_supplement = '\\\n\t'.join(json.loads(self._config['MODEL']['MP']))
+            mp_supplement = ' \\\n\t'.join(json.loads(self._config['MODEL']['MP']))
         except json.decoder.JSONDecodeError:
             raise SyntaxError("Error parsing config: make sure MP has no weird characters in it, and that the list isn't terminated with a trailing ','")
         
