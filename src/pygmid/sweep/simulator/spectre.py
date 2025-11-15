@@ -42,32 +42,32 @@ class SpectreSimulator(Simulator):
 
     def generate_netlist(self, **kwargs) -> str:
         return multiline_join(f"""
-        //pysweep.scs
-        include {kwargs['modelfile']}
-        include "{kwargs['paramfile']}"
+//pysweep.scs
+include {kwargs['modelfile']}
+include "{kwargs['paramfile']}"
 
-        save *:oppoint
+save *:oppoint
 
-        parameters gs=0.498 ds=0.2 L=length*1e-6 Wtot={kwargs['width']}e-6 W={kwargs['width']/kwargs['NFING']}e-6 nf={kwargs['NFING']}
+parameters gs=0.498 ds=0.2 L=length*1e-6 Wtot={kwargs['width']}e-6 W={kwargs['width']/kwargs['NFING']}e-6 nf={kwargs['NFING']}
 
-        vnoi     (vx  0)         vsource dc=0
-        vdsn     (vdn vx)         vsource dc=ds
-        vgsn     (vgn 0)         vsource dc=gs
-        vbsn     (vbn 0)         vsource dc=-sb
-        vdsp     (vdp vx)         vsource dc=-ds
-        vgsp     (vgp 0)         vsource dc=-gs
-        vbsp     (vbp 0)         vsource dc=sb
+vnoi     (vx  0)         vsource dc=0
+vdsn     (vdn vx)         vsource dc=ds
+vgsn     (vgn 0)         vsource dc=gs
+vbsn     (vbn 0)         vsource dc=-sb
+vdsp     (vdp vx)         vsource dc=-ds
+vgsp     (vgp 0)         vsource dc=-gs
+vbsp     (vbp 0)         vsource dc=sb
 
 
-        mp (vdp vgp 0 vbp) {kwargs['modelp']} {kwargs['mp_supplement']}
+mp (vdp vgp 0 vbp) {kwargs['modelp']} {kwargs['mp_supplement']}
 
-        mn (vdn vgn 0 vbn) {kwargs['modeln']} {kwargs['mn_supplement']}
+mn (vdn vgn 0 vbn) {kwargs['modeln']} {kwargs['mn_supplement']}
 
-        simulatorOptions options gmin=1e-13 reltol=1e-4 vabstol=1e-6 iabstol=1e-10 temp={kwargs['temp']} tnom=27
-        sweepvds sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS_step']}
+simulatorOptions options gmin=1e-13 reltol=1e-4 vabstol=1e-6 iabstol=1e-10 temp={kwargs['temp']} tnom=27
+sweepvds sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS_step']}
         """ + "{{" + f"sweepvgs dc param=gs start=0 stop={kwargs['VGS_max']} step={kwargs['VGS_step']}" + "}}" + \
         f"""
-        sweepvds_noise sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS_step']}
+sweepvds_noise sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS_step']}
         """ + "{{" + f"sweepvgs_noise noise freq=1 oprobe=vnoi param=gs start=0 stop={kwargs['VGS_max']} step={kwargs['VGS_step']}" + "}}")
 
     def run(self):
