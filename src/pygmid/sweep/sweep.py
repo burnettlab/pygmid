@@ -22,9 +22,9 @@ class Sweep:
             if (rel_path := os.path.relpath(cfg_dir, os.getcwd())) != ".":
                 module_name = f"{rel_path.replace(os.sep, '.')}.{f.stem}"
             else:
-                module_name = f".{f.stem}"
+                module_name = f.stem
             print(f"Trying to load module: {module_name}")
-            module = import_module(module_name, __package__)
+            module = import_module(module_name)
             try:
                 cls = next(filter(lambda c: isinstance(c, type) and issubclass(c, SweepConfig) and c != SweepConfig, map(lambda n: getattr(module, n), filter(lambda n: not n.startswith("__") and not n.endswith("__"), dir(module)))))
                 self._config = cls(self.config_file_path)
