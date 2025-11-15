@@ -27,6 +27,7 @@ class SpectreSimulator(Simulator):
             '-raw', 
             f'{self._sweep_dir}/psf',
         ]
+        self.__post_init__()
     
     @property
     def output(self) -> str:
@@ -123,7 +124,7 @@ class SpectreSimulator(Simulator):
     def _run_sim(self):
         try:
             cmd_args = ['spectre', self.netlist_filepath] + [*self.args]
-            print(f"Running command: {' '.join(cmd_args)}")
+            # print(f"Running command: {' '.join(cmd_args)}")
             subprocess.run(cmd_args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except subprocess.CalledProcessError as e:
             logging.info(f"Error executing process\n\n{e}")

@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Dict, Tuple, List
 import os
+import subprocess
 import scipy.io
 import h5py
 
@@ -28,7 +29,11 @@ class Simulator(ABC):
     _sweep_dir: str = './sweep'
 
     def __post_init__(self):
-        pass
+        sim_name = self.__class__.__name__.lower().replace('simulator', '')
+        try:
+            subprocess.run(["which", sim_name], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except subprocess.CalledProcessError as e:
+            raise EnvironmentError(f"{sim_name} not found in PATH. Please install or set up the environment correctly.\n\n{e}")
 
     @property
     def directory(self) -> str:
