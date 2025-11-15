@@ -49,7 +49,7 @@ class Simulator(ABC):
     
     @output.setter
     @abstractmethod
-    def output_setter(self, args: Tuple):
+    def output(self, args: Tuple):
         pass
 
     @abstractmethod

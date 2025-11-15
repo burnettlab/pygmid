@@ -30,7 +30,7 @@ class NGSpiceSimulator(Simulator):
         return os.path.expandvars(f"techsweep_{'_'.join(self._config['MODEL']['MODELN'].split('_')[:-1])}.txt")
     
     @output.setter
-    def output_setter(self, args: Tuple):
+    def output(self, args: Tuple):
         pass
 
     @property
