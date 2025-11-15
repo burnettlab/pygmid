@@ -30,7 +30,7 @@ class SpectreSimulator(Simulator):
     
     @property
     def output(self) -> str:
-        if self._output is None:
+        if getattr(self, "_output", None) is None:
             self._output = f"{self._sweep_dir}/psf_1_0"
         return self._output
     
