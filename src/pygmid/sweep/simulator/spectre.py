@@ -41,8 +41,7 @@ class SpectreSimulator(Simulator):
         self._output = f"{self._sweep_dir}/psf_{length}_{sb}"
 
     def generate_netlist(self, **kwargs) -> str:
-        return multiline_join(f"""
-//pysweep.scs
+        return multiline_join(f"""//pysweep.scs
 include {kwargs['modelfile']}
 include "{kwargs['paramfile']}"
 
