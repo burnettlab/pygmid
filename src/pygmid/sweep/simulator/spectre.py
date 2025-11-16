@@ -127,6 +127,13 @@ sweepvds_noise sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS
         except subprocess.CalledProcessError as e:
             logging.info(f"Error executing process\n\n{e}")
             return
+        
+    def _cleanup(self, nch, pch) -> Tuple[str, str]:
+        try:
+            os.remove("params.scs")
+        except OSError as e:
+            print(f"Could not perform cleanup:\nFile - {e.filename}\nError - {e.strerror}")
+        return super()._cleanup(nch, pch)
 
 
     def extract_sweep_params(self, sweep_output_directory, sweep_type):
