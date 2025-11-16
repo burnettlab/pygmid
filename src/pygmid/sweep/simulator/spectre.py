@@ -37,9 +37,7 @@ class SpectreSimulator(Simulator):
     
     @output.setter
     def output(self, args: Tuple):
-        Ls = np.unique(self._config['SWEEP']['LENGTH'])
-        VSBs = np.unique(self._config['SWEEP']['VSB'])
-        i, j = map(lambda a: np.argmax(a[2][a[2] < a[0]]).item() if a[0] is not None else a[1], zip(args, self.output.split("_")[-2:], (Ls, VSBs)))
+        i, j = map(lambda a: a[0] if a[0] is not None else a[1], zip(args, self.output.split("_")[-2:]))
         self._output = f"{self._sweep_dir}/psf_{i}_{j}"
 
     def generate_netlist(self, **kwargs) -> str:
@@ -90,7 +88,7 @@ sweepvds_noise sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS
             futures = []
             for i, L in enumerate(tqdm(Ls,desc="Sweeping L")):
                 for j, VSB in enumerate(tqdm(VSBs, desc="Sweeping VSB", leave=False)):
-                    self._config.write_params(length=L, sb=VSB)
+                    self._config.write_params(length=L, sb=VSB, index=(i,j))
                     self.directory = self.output
                     self._run_sim()
 

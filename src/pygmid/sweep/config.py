@@ -85,11 +85,10 @@ class SweepConfig(ABC):
 
     @abstractmethod
     def write_params(self, length: Optional[Union[float, str]] = None, sb: Optional[Union[float, str]] = None, **kwargs):
-        kwargs.update(filter(lambda item: item[1] is not None, {'length': length, 'sb': sb}.items()))
         with open(self.paramfile, 'w') as outfile:
-            outfile.write(f"parameters {' '.join([f'{k}={v}' for k, v in kwargs.items()])}")
+            outfile.write(f"parameters length={length} sb={sb}\n")
 
-        self._simulator.output = (length, sb)   # type: ignore
+        self._simulator.output = kwargs.get('index', (length, sb))   # type: ignore
         
     def _write_netlist(self):
         """ Write the netlist for the simulation. """
