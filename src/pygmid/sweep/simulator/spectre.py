@@ -32,13 +32,15 @@ class SpectreSimulator(Simulator):
     @property
     def output(self) -> str:
         if getattr(self, "_output", None) is None:
-            self._output = f"{self._sweep_dir}/psf_1_0"
+            self._output = f"{self._sweep_dir}/psf_0_0"
         return self._output
     
     @output.setter
     def output(self, args: Tuple):
-        length, sb = map(lambda a: a[0] if a[0] is not None else a[1], zip(args, self.output.split("_")[-2:]))
-        self._output = f"{self._sweep_dir}/psf_{length}_{sb}"
+        Ls = np.unique(self._config['SWEEP']['LENGTH'])
+        VSBs = np.unique(self._config['SWEEP']['VSB'])
+        i, j = map(lambda a: np.argmax(a[2][a[2] < a[0]]).item() if a[0] is not None else a[1], zip(args, self.output.split("_")[-2:], (Ls, VSBs)))
+        self._output = f"{self._sweep_dir}/psf_{i}_{j}"
 
     def generate_netlist(self, **kwargs) -> str:
         return f"""//pysweep.scs
