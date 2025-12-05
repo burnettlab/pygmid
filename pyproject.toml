@@ -17,8 +17,6 @@ dependencies = [
     "prettytable",
     "h5py",
     "pandas",
-    "pint",
-    "mip",
     "auto_all"
 ]
 license = "Apache-2.0"
