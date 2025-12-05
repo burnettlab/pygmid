@@ -17,7 +17,7 @@ from auto_all import public
 from scipy.interpolate import interpn
 
 from .constants import *
-from .numerical import interp1, num_conv, convert_temp
+from .numerical import interp1, convert_temp
 
 
 @dataclass

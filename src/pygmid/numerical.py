@@ -44,6 +44,8 @@ def interp1(x, y, **ipkwargs):
     else:
         return interp1d(x, y, **ipkwargs)
 
+
+@public
 def num_conv(v):
     """ Converts a string to int, float, or str as appropriate. """
     if v is None:
@@ -68,6 +70,7 @@ def num_conv(v):
     raise ValueError(f"Could not convert value: {v}")
 
 
+@public
 def convert_temp(temp: float | str, temp_unit="C") -> float:
     """ Convert temperature to Kelvin if given in Celsius or as a string with 'K' suffix. """
     if isinstance(temp, str):
