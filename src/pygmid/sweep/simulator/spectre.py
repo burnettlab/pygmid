@@ -10,10 +10,12 @@ from typing import Tuple
 import numpy as np
 import psf_utils
 from tqdm import tqdm
+from auto_all import public
 
-from .sim import Simulator, multiline_join
+from .sim import Simulator
 
 
+@public
 class SpectreSimulator(Simulator):
     """ Spectre simulator class for technology sweeps. """
     netlist_ext: str = 'scs'
@@ -170,3 +172,5 @@ sweepvds_noise sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS
                 pmos[f'mp.{param}'][:,VDS_i] = (psf.get_signal(f"mp.{param}").ordinate).T
         
         return (nmos, pmos)
+
+SIMULATORS['spectre'] = SpectreSimulator

@@ -8,10 +8,12 @@ from typing import Tuple
 
 import numpy as np
 import pandas as pd
+from auto_all import public
 
-from .sim import Simulator, multiline_join
+from .sim import Simulator, multiline_join, SIMULATORS
 
 
+@public
 class NGSpiceSimulator(Simulator):
     """ NGSPICE simulator class for technology sweeps. """
     netlist_ext: str = 'spice'
@@ -337,3 +339,5 @@ class NGSpiceSimulator(Simulator):
             output_dicts.append(dict(map(lambda item: (item[0], np.reshape(item[1], dims)), dev_df.to_dict(orient='list').items())))
 
         return tuple(output_dicts)
+
+SIMULATORS['ngspice'] = NGSpiceSimulator

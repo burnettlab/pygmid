@@ -2,13 +2,16 @@ import os
 from dataclasses import dataclass, field
 from importlib import import_module
 from pathlib import Path
-from warnings import warn
 from typing import Dict
+from warnings import warn
 
-from .config import SweepConfig, SpectreConfig, NGSpiceConfig
-from .simulator import Simulator
+from auto_all import public
+
+from .config import NGSpiceConfig, SpectreConfig, SweepConfig
+from .simulator import Simulator    # type: ignore
 
 
+@public
 @dataclass
 class Sweep:
     config_file_path: str

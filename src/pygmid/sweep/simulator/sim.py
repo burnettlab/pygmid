@@ -9,8 +9,10 @@ import os
 import subprocess
 import scipy.io
 import h5py
+from auto_all import public, start_all, end_all
 
 
+@public
 def multiline_join(in_str: str) -> str:
     ix, line = next(filter(lambda l: len(l[1].lstrip()) and l[1].lstrip()[0] != l[1][0], enumerate(in_str.splitlines())))
     indent_amt = len(line) - len(line.lstrip())
@@ -19,6 +21,7 @@ def multiline_join(in_str: str) -> str:
     )
 
 
+@public
 @dataclass
 class Simulator(ABC):
     """ Abstract base class for sweep simulators. """
@@ -125,3 +128,7 @@ class Simulator(ABC):
             model_paths.append(filename)
 
         return tuple(model_paths)
+
+start_all()
+SIMULATORS = {}
+end_all()

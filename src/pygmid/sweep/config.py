@@ -5,10 +5,11 @@ from abc import ABC, abstractmethod
 from itertools import chain
 from dataclasses import dataclass, field
 from typing import Optional, Union, List, Tuple
+from auto_all import public
 
 import numpy as np
 
-from .simulator import SIMULATORS, Simulator
+from .simulator import SIMULATORS, Simulator    # type: ignore
 from ..numerical import num_conv, convert_temp
 
 LENGTH_PRECISION = 0.005  # in microns
@@ -23,6 +24,7 @@ def toupper(optionstr: str) -> str:
     return optionstr.upper()
 
 
+@public
 @dataclass
 class SweepConfig(ABC):
     config_file_path: str
@@ -149,6 +151,7 @@ class SweepConfig(ABC):
         pass
 
 
+@public
 class SpectreConfig(SweepConfig):
     """ Configuration class for sweep simulations using Spectre. """
     def __post_init__(self):
@@ -207,6 +210,8 @@ class SpectreConfig(SweepConfig):
         p_noise.append(['mp:fn', ''])
         return (n, p, n_noise, p_noise)
     
+
+@public
 class NGSpiceConfig(SweepConfig):
     """ Configuration class for sweep simulations using ngspice. """
     def __post_init__(self):

@@ -1,11 +1,17 @@
+import inspect
+from functools import partial
+
 import numpy as np
+from auto_all import public
 
 from .numerical import interp1
 
 
+@public
 def EKV_param_extraction(lk, mode, **kwargs):
     return XTRACT(lk, mode, **kwargs)
 
+@public
 def XTRACT(lk, mode, **kwargs):
     """
     EKV param extraction algorithm.

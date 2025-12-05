@@ -1,6 +1,48 @@
 [build-system]
-requires = ["setuptools>=42"]
+requires = ["setuptools>=65", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "pygmid"
+dynamic = ["version"]
+description = "A python 3 implementation of the gm/ID starter kit"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "psf_utils",
+    "tqdm",
+    "prettytable",
+    "h5py",
+    "pandas",
+    "pint",
+    "mip",
+    "auto_all"
+]
+license = "Apache-2.0"
+authors = [
+    { name = "Cian Ó Domhnaill", email = "cian.odonnell@tyndall.ie" },
+    { name = "Tiarnach Ó Riada" },
+    { name = "Danylo Galach" },
+]
+urls = { "Homepage" = "https://github.com/madrasalach/pygmid", "Bug Tracker" = "https://github.com/madrasalach/pygmid/issues" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+pygmid = "pygmid:main"
+
+[tool.setuptools]
+# Find packages under src/
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.dynamic]
+version = {attr = "pygmid.__version__"}
 
 [tool.pytest.ini_options]
 addopts = [

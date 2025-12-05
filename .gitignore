@@ -14,3 +14,4 @@ sweep.*/
 *.pkl
 *.scs
 config.cfg
+*.python-version
