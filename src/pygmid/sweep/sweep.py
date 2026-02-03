@@ -8,7 +8,7 @@ from warnings import warn
 from auto_all import public
 
 from .config import NGSpiceConfig, SpectreConfig, SweepConfig
-from .simulator import Simulator    # type: ignore
+from .simulator import *
 
 
 @public
@@ -41,10 +41,10 @@ class Sweep:
             configs: Dict[str, SweepConfig] = {
                 'ngspice': NGSpiceConfig,
                 'spectre': SpectreConfig,
-            }   # type: ignore
+            }
             for sim_name, config in configs.items():
-                cfg = config(self.config_file_path) # type: ignore
-                if getattr(cfg._config['SIMULATOR'], 'TYPE', 'spectre').lower() == sim_name:
+                cfg = config(self.config_file_path)
+                if cfg._config['SIMULATOR']["TYPE"].lower() == sim_name:
                     self._config = cfg
                     print(f"Loaded {sim_name} config from default Config class.")
                     break
@@ -52,7 +52,7 @@ class Sweep:
         self._config._write_netlist()
 
     @property
-    def _simulator(self) -> Simulator:
+    def _simulator(self) -> 'Simulator':
         return self._config._simulator
     
     def run(self):

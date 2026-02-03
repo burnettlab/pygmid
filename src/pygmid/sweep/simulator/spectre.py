@@ -12,7 +12,7 @@ import psf_utils
 from tqdm import tqdm
 from auto_all import public
 
-from .sim import Simulator
+from .sim import Simulator, SIMULATORS
 
 
 @public

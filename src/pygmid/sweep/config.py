@@ -9,7 +9,7 @@ from auto_all import public
 
 import numpy as np
 
-from .simulator import SIMULATORS, Simulator    # type: ignore
+from .simulator import *
 from ..numerical import num_conv, convert_temp
 
 LENGTH_PRECISION = 0.005  # in microns
@@ -30,7 +30,7 @@ class SweepConfig(ABC):
     config_file_path: str
     _configParser: configparser.ConfigParser = field(default_factory=configparser.ConfigParser, repr=False)
     _config: dict = field(init=False)
-    _simulator: Simulator = field(init=False, repr=False)
+    _simulator: 'Simulator' = field(init=False, repr=False)
 
     def __post_init__(self):
         self._configParser.optionxform = toupper	
@@ -90,7 +90,7 @@ class SweepConfig(ABC):
         with open(self.paramfile, 'w') as outfile:
             outfile.write(f"parameters length={length} sb={sb}\n")
 
-        self._simulator.output = kwargs.get('index', (length, sb))   # type: ignore
+        self._simulator.output = kwargs.get('index', (length, sb))
         
     def _write_netlist(self):
         """ Write the netlist for the simulation. """
@@ -236,14 +236,12 @@ class NGSpiceConfig(SweepConfig):
         n.append( ['n.xm1.n:gds','S',   	[0,    0,   0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         n.append( ['n.xm1.n:cgg','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
         n.append( ['n.xm1.n:cgdol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    1,    0,    0,    1,    0  ]])
-        n.append( ['n.xm1.n:cgsol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    1,    0,    0,    0,    0,    0,    1  ]])
-        n.append( ['n.xm1.n:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    1,    0,    0,    0,    0,    0,    0  ]])
+        n.append( ['n.xm1.n:cgsol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    1,    1,    0,    0,    0,    0,    1  ]])
+        n.append( ['n.xm1.n:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    1,    1,    0,    0,    0,    0,    0  ]])
         n.append( ['n.xm1.n:cgd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    1,    0,    0,    0,    0  ]])
         n.append( ['n.xm1.n:cgb','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    1,    0,    0  ]])
         n.append( ['n.xm1.n:cdd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        n.append( ['n.xm1.n:cdg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    1,    0,    0,    0  ]])
         n.append( ['n.xm1.n:css','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        n.append( ['n.xm1.n:csg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    1,    0,    0,    0,    0,    0  ]])
         n.append( ['n.xm1.n:cjd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
         n.append( ['n.xm1.n:cjs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
 
@@ -256,20 +254,18 @@ class NGSpiceConfig(SweepConfig):
         p.append( ['n.xm2.n:gds','S',   	[0,    0,   0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
         p.append( ['n.xm2.n:cgg','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
         p.append( ['n.xm2.n:cgdol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    1,    0,    0,    1,    0  ]])
-        p.append( ['n.xm2.n:cgsol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    1,    0,    0,    0,    0,    0,    1  ]])
-        p.append( ['n.xm2.n:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    1,    0,    0,    0,    0,    0,    0  ]])
+        p.append( ['n.xm2.n:cgsol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    1,    1,    0,    0,    0,    0,    1  ]])
+        p.append( ['n.xm2.n:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    1,    1,    0,    0,    0,    0,    0  ]])
         p.append( ['n.xm2.n:cgd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    1,    0,    0,    0,    0  ]])
         p.append( ['n.xm2.n:cgb','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    1,    0,    0  ]])
         p.append( ['n.xm2.n:cdd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        p.append( ['n.xm2.n:cdg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    1,    0,    0,    0  ]])
         p.append( ['n.xm2.n:css','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        p.append( ['n.xm2.n:csg','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    1,    0,    0,    0,    0,    0  ]])
         p.append( ['n.xm2.n:cjd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
         p.append( ['n.xm2.n:cjs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
         
-        n_noise.append(['n.xm1.n:id', ''])
-        n_noise.append(['n.xm1.n:1overf', ''])
+        n_noise.append(['n.xm1.n:sid', ''])
+        n_noise.append(['n.xm1.n:sfl', ''])
         
-        p_noise.append(['n.xm2.n:id', ''])
-        p_noise.append(['n.xm2.n:1overf', ''])
+        p_noise.append(['n.xm2.n:sid', ''])
+        p_noise.append(['n.xm2.n:sfl', ''])
         return (n, p, n_noise, p_noise)

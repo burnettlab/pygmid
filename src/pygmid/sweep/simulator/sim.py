@@ -25,7 +25,7 @@ def multiline_join(in_str: str) -> str:
 @dataclass
 class Simulator(ABC):
     """ Abstract base class for sweep simulators. """
-    _config: 'Config' = field(repr=False)   # type: ignore
+    _config: 'Config' = field(repr=False)
     netlist_name: str = 'pysweep'
     netlist_ext: str = field(init=False)
     args: List[str] = field(default_factory=lambda: [os.getcwd()])

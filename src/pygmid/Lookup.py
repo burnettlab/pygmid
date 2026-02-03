@@ -7,7 +7,7 @@ from dataclasses import InitVar, dataclass, field
 from functools import cached_property, partial, wraps
 from itertools import chain
 from pathlib import Path
-from typing import *  # type: ignore
+from typing import *
 
 import h5py
 import numpy as np
@@ -17,7 +17,7 @@ from auto_all import public
 from scipy.interpolate import interpn
 
 from .constants import *
-from .numerical import interp1, convert_temp
+from .numerical import interp1, convert_temp, num_conv
 
 
 @dataclass
@@ -25,7 +25,8 @@ class _BaseLUT(Mapping):
     """Base LUT implementing mapping protocol for Lookup class."""
     filename: str = ""
     device: InitVar[Optional[str]] = None
-    lut_kwargs: InitVar[Dict] = field(default={})
+    lut_kwargs: InitVar[Dict] = field(default={}, repr=False)
+    data: Mapping = field(init=False, repr=False)
 
     def __contains__(self, key):
         k = key.upper()
@@ -45,7 +46,16 @@ class _BaseLUT(Mapping):
             yield k
 
     def __len__(self):
-        return len(self.keys())
+        return len(list(self.keys()))
+    
+    def keys(self) -> KeysView[Any]:
+        return self.data.keys()
+    
+    def values(self) -> ValuesView[Any]:
+        return self.data.values()
+    
+    def items(self) -> ItemsView[Any, Any]:
+        return self.data.items()
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -155,17 +165,17 @@ class _H5LUT(_BaseLUT):
         # traverse environment keys that are of the form KEY:val
         while len(env_keys := set(map(lambda k: k.split(":")[0], grp.keys()))) == 1:  # type: ignore
             k = next(iter(env_keys))
-            num_conv = lambda e: convert_temp(e, temp_unit='K') if k == 'TEMP' else unit_init(e)
+            key_conv = lambda e: convert_temp(e, temp_unit='K') if k == 'TEMP' else num_conv(e)
             grp_keys = list(k.split(":")[1] for k in grp.keys())     # type: ignore
 
-            env_val = to_magnitude(num_conv(self.env_kwargs.get(k.upper(), globals().get(k.upper(), os.getenv(k.upper())))))
+            env_val = key_conv(self.env_kwargs.get(k.upper(), globals().get(k.upper(), os.getenv(k.upper()))))
             assert env_val is not None, f"Environment variable {k} not specified!"
 
             if isinstance(env_val, str):
                 chosen = env_val
             else:
                 dist_calc = lambda x: abs(x - env_val) if x <= env_val or k != 'VDD' or np.isclose(x, env_val) else float('inf')    # type: ignore
-                chosen = grp_keys[np.argmin([dist_calc(to_magnitude(unit_init(ck))) for ck in grp_keys])]   # type: ignore
+                chosen = grp_keys[np.argmin([dist_calc(key_conv(ck)) for ck in grp_keys])]   # type: ignore
 
             grp = grp[f"{k}:{chosen}"]
 
@@ -179,15 +189,15 @@ class _H5LUT(_BaseLUT):
 
     @h5open
     def keys(self) -> KeysView[Any]:
-        return KeysView(list(self._h5file[self.lut_key].keys()))    # type: ignore
+        return iter(list(self._h5file[self.lut_key].keys()))    # type: ignore
     
     @h5open
-    def values(self) -> ValuesView[Any]:
-        return ValuesView(list(self._h5file[self.lut_key].values()))    # type: ignore
-
+    def values(self):
+        return iter(list(self[k] for k in self._h5file[self.lut_key].keys()))     # type: ignore
+    
     @h5open
-    def items(self) -> ItemsView[Any, Any]:
-        return ItemsView(list(self._h5file[self.lut_key].items()))  # type: ignore
+    def items(self):
+        return iter(list((k, self[k]) for k in self._h5file[self.lut_key].keys()))    # type: ignore
 
     @h5open
     def __getitem__(self, key) -> Any:
@@ -218,10 +228,11 @@ class _H5LUT(_BaseLUT):
 @public
 @dataclass
 class Lookup:
+    """ PyGMID Lookup Class """
     filename: InitVar[Optional[str]] = None
     device: InitVar[Optional[str]] = None
-    lut_kwargs: InitVar[Dict] = field(default={})
-    _mode: int = field(init=False, default=1, repr=False)
+    lut_kwargs: InitVar[Dict] = field(default={}, compare=False)
+    _mode: int = field(init=False, default=1, repr=False, compare=False)
 
     @property
     def __DATA(self):
@@ -254,7 +265,7 @@ class Lookup:
         return f
 
     @__modefuncmap.setter
-    def __modefuncmap(self, args: Tuple):
+    def __modefuncmap(self, args: Tuple[Union[str, List[str]], Union[str, List[str]]]):
         """
         Function to set lookup mode
             MODE1: output is single variable, variable arg is single
@@ -330,7 +341,8 @@ class Lookup:
             LUT data structure when file type supported, None otherwise
         """
         if filename is None:
-            techsweep_dir = os.getenv("TECHSWEEP_DIR", os.path.expandvars("$PDK_ROOT/techsweeps"))
+            techsweep_dir = os.path.expandvars(os.getenv("TECHSWEEP_DIR", "$PDK_ROOT/techsweeps"))
+            assert os.path.isdir(techsweep_dir), f"TECHSWEEP_DIR does not exist: {techsweep_dir}"
             filename = os.path.join(techsweep_dir, next(chain.from_iterable(map(lambda ext: glob.iglob(f'*{ext}', root_dir=techsweep_dir), ['.h5', '.hdf5', '.mat', '.pkl']))))
 
         try:
@@ -370,7 +382,25 @@ class Lookup:
             self.__DATA[key.upper()] = np.copy(value)
         else:
             k = next(filter(lambda x: isinstance(self.__DATA[x], dict) and key.upper() in self.__DATA[x], self.__DATA.keys()))
-            self.__DATA[k][key] = np.copy(value) 
+            self.__DATA[k][key] = np.copy(value)
+
+    def keys(self):
+        """
+        Alias for keys() function
+        """
+        return self.__DATA.keys()
+
+    def values(self):
+        """
+        Alias for values() function
+        """
+        return self.__DATA.values()
+    
+    def items(self):
+        """
+        Alias for items() function
+        """
+        return self.__DATA.items()
 
     def lookup(self, out, **kwargs):
         """
@@ -506,8 +536,8 @@ class Lookup:
             for j in range(0, len(xdesired)):
                 m = max(x[:, i])
                 idx = np.argmax(x[:, i])
-                if (xdesired[j] > m):
-                    print(f'Look up warning: {num}_{den} input larger than maximum! Output is NaN')
+                # if (xdesired[j] > m):
+                #     print(f'Look up warning: {num}_{den} input larger than maximum! Output is NaN')
                 if (num.upper() == 'GM') and (den.upper() == 'ID'):
                     x_right = x[idx:-1, i]
                     y_right = y[idx:-1, i]
@@ -553,7 +583,7 @@ class Lookup:
         def perform_lk(self, **kwargs):
             kwargs = {k.upper(): v for k, v in kwargs.items()} # convert kwargs to upper
             defaultdict = {k:self.__default.get(k) for k in ['L', 'VDS', 'VDB', 'VGB', 'GM_ID', 'ID_W', 'VSB', 'METHOD']}
-            pars = {k:kwargs.get(k, v) for k,v in defaultdict.items()}
+            pars = {k:kwargs.pop(k, v) for k,v in defaultdict.items()}
 
             #Check whether GM_ID or ID_W was passed to function
             ratio_string = 'None'
@@ -580,13 +610,13 @@ class Lookup:
             
             if mode == 1:
                 VGS = self.__DATA['VGS']
-                ratio = to_magnitude(self.look_up(ratio_string, VGS = VGS, VDS=pars['VDS'], VSB=pars['VSB'], L=pars['L']))
+                ratio = self.look_up(ratio_string, VGS = VGS, VDS=pars['VDS'], VSB=pars['VSB'], L=pars['L'], **kwargs)
             elif mode == 2:
                 step = self.__DATA['VGS'][0] - self.__DATA['VGS'][1]
                 VSB = np.arange(max(self.__DATA['VSB']), min(self.__DATA['VSB']) + step, step)
                 VGS = pars['VGB'] - VSB
                 VDS = pars['VDB'] - VSB
-                ratio = np.array([to_magnitude(self.look_up(ratio_string, VGS=VGS[i], VDS=VDS[i], VSB=VSB[i], L=pars['L'])).item() for i in range(len(VGS))])
+                ratio = np.array([self.look_up(ratio_string, VGS=VGS[i], VDS=VDS[i], VSB=VSB[i], L=pars['L'], **kwargs).item() for i in range(len(VGS))])
                 idx = ~np.isnan(ratio)
                 ratio = ratio[idx]
                 VGS = VGS[idx]
@@ -613,13 +643,13 @@ class Lookup:
                     VGS_range = VGS_range[idx:]
                     ratio_range = ratio_range[idx:]
 
-                    if np.max(np.atleast_1d(ratio_data)) > m:  # type: ignore
-                        print('look_upVGS: GM_ID input larger than maximum!')
+                    # if np.max(np.atleast_1d(ratio_data)) > m:  # type: ignore
+                    #     print('look_upVGS: GM_ID input larger than maximum!')
                 
                 output[j,:] = interp1(ratio_range, VGS_range)(ratio_data)
                 output = output[:]
             
-            return np.squeeze(output)   # type: ignore
+            return np.squeeze(output)
 
         if isinstance(self.__DATA, _H5LUT):
             perform_lk = h5open(perform_lk, cls_override=self.__DATA)   # type: ignore
@@ -662,21 +692,16 @@ class Lookup:
     def __repr__(self) -> str:
         return f"PyGMID_Lookup<{self.__DATA['INFO']}>"
 
-    def __str__(self):
+    def __str__(self) -> str:
         tab = prettytable.PrettyTable()
         tab.title = f"PyGMID: {self.__DATA['INFO']}"
         tab.field_names = ['Variable', 'Size', 'Min', 'Max']
 
-        for k, v in self.__DATA.items():
-            if not hasattr(v, 'dtype'):
-                continue
+        for k, v in filter(lambda it: hasattr(it[1], 'dtype'), self.items()):
             is_numeric = np.issubdtype(v.dtype, np.number)
-
-            size = None
-
-            if is_numeric :
-                size = str(v.shape).replace('(', '').replace(')', '').\
-                                    replace(', ', 'x').replace(',', '')
+            size = str(v.shape).replace('(', '').replace(')', '').\
+                                replace(', ', 'x').replace(',', '')\
+                if is_numeric else None
 
             tab.add_row([ k
                         , size             if size       else '1'

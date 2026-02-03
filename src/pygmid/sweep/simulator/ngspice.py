@@ -52,13 +52,15 @@ class NGSpiceSimulator(Simulator):
         sweep_codes = [
         f"""
         .param wx={kwargs['width']/kwargs['NFING']:.3f}u lx={kwargs['LEN_VEC'][0]:.3f}u
-        .noise v(nn) vgn lin 1 1 1 1
-        .noise v(np) vgp lin 1 1 1 1
+        .save all
+        .noise v(nn) vgn dec 1 1 1e11 1
+        .noise v(np) vgp dec 1 1 1e11 1
         .op
 
         .control
         set wr_singlescale
         set wr_vecnames
+        set sqrnoise
 
         compose l_vec values {'u '.join(map(lambda l: f'{l:.3f}', kwargs['LEN_VEC']))}u
         compose vg_vec start= 0 stop={kwargs['VGS_max']+0.001:.3f}  step={kwargs['VGS_step']:.3f}
@@ -95,14 +97,12 @@ class NGSpiceSimulator(Simulator):
         write pysweep.raw
         .endc""",
         "\n".join(map(lambda l: "        .save @" + f"{kwargs['modeln']}[".join(l[0].split(':')) + "]", self._config['n'] + self._config['n_noise']))
-        # + "\n".join(map(lambda l: "        .save onoise." + f"{kwargs['modeln']}[".join(l[0].split(':')) + "]", self._config['n_noise']))
         + f"""
         .save @vbn[dc]
         .save @vdn[dc]
         .save @vgn[dc]
         .save gn dn bn nn\n""",
         "\n".join(map(lambda l: "        .save @" + f"{kwargs['modelp']}[".join(l[0].split(':')) + "]", self._config['p'] + self._config['p_noise']))
-        # + "\n".join(map(lambda l: "        .save onoise." + f"{kwargs['modeln']}[".join(l[0].split(':')) + "]", self._config['p_noise']))
         + f"""
         .save @vbp[dc]
         .save @vdp[dc]

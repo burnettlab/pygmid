@@ -1,6 +1,3 @@
-import inspect
-from functools import partial
-
 import numpy as np
 from auto_all import public
 
@@ -9,6 +6,14 @@ from .numerical import interp1
 
 @public
 def EKV_param_extraction(lk, mode, **kwargs):
+    """ Extract Basic EKV Model Parameters 
+    Args:
+        lk (Lookup): Lookup object containing device data
+        mode (int): Mode of operation (1 or 2)
+        **kwargs: Additional parameters based on mode
+    Returns:
+        VDS, n, VT, JS, d1n, d1VT, d1logJS, d2n, d2VT, d2logJS 
+    """
     return XTRACT(lk, mode, **kwargs)
 
 @public
