@@ -13,6 +13,9 @@ from auto_all import public
 from .sim import Simulator, multiline_join, SIMULATORS
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 @public
 class NGSpiceSimulator(Simulator):
     """ NGSPICE simulator class for technology sweeps. """
@@ -217,7 +220,7 @@ class NGSpiceSimulator(Simulator):
 
             with open(self.schematic_filepath, 'w') as f:
                 f.write(multiline_join(schem))
-            print("Generating netlist using xschem...")
+            LOGGER.debug("Generating netlist using xschem...")
             cmd_args = ['xschem', '--detach', '--netlist', self.schematic_filepath, '-o', str(Path(self.netlist_filepath).parent.resolve()), '--rcfile', os.path.expandvars(xschem_rc)]
         
             subprocess.run(cmd_args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -285,25 +288,19 @@ class NGSpiceSimulator(Simulator):
     def _run_sim(self):
         try:
             cmd_args = ['ngspice'] + self.args
-            print(f"Running command: {' '.join(cmd_args)}")
+            LOGGER.debug(f"Running command: {' '.join(cmd_args)}")
             subprocess.run(cmd_args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             sleep(1)
-        except subprocess.CalledProcessError as e:
-            logging.info(f"Error executing process\n\n{e}")
+        except subprocess.CalledProcessError:
+            LOGGER.exception(f"Error executing process!")
         
     def _cleanup(self, nch, pch) -> Tuple[str, str]:
         clean_path = lambda ext: self.output.replace("txt", ext)
-        for p in map(clean_path, ("txt", "log")):
+        for p in list(map(clean_path, ("txt", "log"))) + [self.netlist_filepath.replace(self.netlist_ext, "sch"), "pysweep.raw"]:
             try:
                 os.remove(p)
-            except OSError as e:
-                print(f"Could not perform cleanup:\nFile - {e.filename}\nError - {e.strerror}")
-
-        for f in [self.netlist_filepath.replace(self.netlist_ext, "sch"), "pysweep.raw"]:
-            try:
-                os.remove(f)
-            except OSError as e:
-                print(f"Could not perform cleanup:\nFile - {e.filename}\nError - {e.strerror}")
+            except OSError:
+                LOGGER.exception(f"Could not perform cleanup!")
 
         return super()._cleanup(nch, pch)
 

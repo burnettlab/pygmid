@@ -5,6 +5,9 @@ from .version import __version__
 from . import pygmid
 from . import sweep
 
+LOGGER = logging.getLogger(__name__)
+
+
 def _cli():
     from argparse import ArgumentParser
     description = "CLI for pygmid. Run techsweeps"
@@ -17,10 +20,10 @@ def _cli():
     args = parser.parse_args()
     if args.mode == 'sweep':
         if args.config is None:
-            logging.error('Please provide a config file with --config if using the sweep mode')
+            LOGGER.error('Please provide a config file with --config if using the sweep mode')
             sys.exit(-1)
         mfn, mfp = sweep.run(args.config, skip_sweep=getattr(args, 'skip_run', False))
-        logging.info(f"Wrote sweep data to files: {mfn} and {mfp}")
+        LOGGER.info(f"Wrote sweep data to files: {mfn} and {mfp}")
         sys.exit(0)
     elif args.mode == 'lookup':
         pygmid.main()
@@ -28,5 +31,5 @@ def _cli():
     sys.exit(-1)
         
 if __name__ == '__main__':
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+    # logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
     _cli()

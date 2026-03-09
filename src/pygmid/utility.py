@@ -1,7 +1,12 @@
+import logging
+
 import numpy as np
 from auto_all import public
 
 from .numerical import interp1
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 @public
@@ -157,7 +162,7 @@ def XTRACT(lk, mode, **kwargs):
 
         return (VDS, n, VT, JS, d1n, d1VT, d1logJS, d2n, d2VT, d2logJS) 
     elif mode ==2:
-        print("Mode 2 not implemented")
+        LOGGER.warning("XTRACT Mode 2 not implemented")
         return
         #VGS =   kwargs.get('VGS', lk['VGS'])
         #ID =   kwargs.get('ID', lk['ID'])
@@ -185,5 +190,5 @@ def XTRACT(lk, mode, **kwargs):
 
         #return n, VT, IS 
     else:
-        print("Invalid mode")
+        LOGGER.error("Invalid mode for XTRACT")
         return

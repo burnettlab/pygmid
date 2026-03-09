@@ -38,7 +38,8 @@ def interp1(x, y, **ipkwargs):
         # enforce increasing monotonicity
         ind = np.argsort(x)
         x = x[ind]
-        y = np.take(y, ind, axis=-1)
+        y = y[...,ind]
+        # y = np.take(y, ind, axis=-1)
 
         return PchipInterpolator(x, y, **pchipkwargs)
     else:

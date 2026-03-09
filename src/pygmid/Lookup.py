@@ -1,4 +1,5 @@
 import glob
+import logging
 import os
 import pickle
 from collections.abc import ItemsView, KeysView, Mapping, ValuesView
@@ -17,7 +18,10 @@ from auto_all import public
 from scipy.interpolate import interpn
 
 from .constants import *
-from .numerical import interp1, convert_temp, num_conv
+from .numerical import convert_temp, interp1, num_conv
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -284,10 +288,13 @@ class Lookup:
         var_ratio = isinstance(varkey, list) and len(varkey) > 1
         if out_ratio and var_ratio:
             self._mode = 3
+            LOGGER.debug(f"Output {'_'.join(outkey)} and Input {'_'.join(varkey)} sets lookup mode to 3")
         elif out_ratio and (not var_ratio):
             self._mode = 2
+            LOGGER.debug(f"Output {'_'.join(outkey)} and Input {varkey} sets lookup mode to 2")
         elif (not out_ratio) and (not var_ratio):
             self._mode = 1
+            LOGGER.debug(f"Output {outkey} and Input {varkey} sets lookup mode to 1")
         else:
             raise ValueError("Invalid syntax or usage mode! Please check documentation.")
 
@@ -320,6 +327,7 @@ class Lookup:
             'ID_W'  :   kwargs.get('ID_W', None),
             'VDB'   :   kwargs.get('VDB', None)
         }
+        LOGGER.debug("\n\t".join(["Default lookup values:"] + list(map(lambda it: f"{it[0]}: {it[1]}", self.__default.items()))))
 
     def __load(self, filename, device, **kwargs):
         """
@@ -345,9 +353,11 @@ class Lookup:
             assert os.path.isdir(techsweep_dir), f"TECHSWEEP_DIR does not exist: {techsweep_dir}"
             filename = os.path.join(techsweep_dir, next(chain.from_iterable(map(lambda ext: glob.iglob(f'*{ext}', root_dir=techsweep_dir), ['.h5', '.hdf5', '.mat', '.pkl']))))
 
+        LOGGER.debug(f"Loading lookup table from {filename}")
         try:
             self.__DATA = dict(filename=filename, device=device, lut_kwargs=kwargs)
         except KeyError:
+            LOGGER.exception(f'File not supported (only .mat, .pkl, .h5 and .hdf5): {filename}')
             raise TypeError(f'File not supported (only .mat, .pkl, .h5 and .hdf5): {filename}')
 
 
@@ -361,7 +371,8 @@ class Lookup:
         member array.
         """
         if key not in self:
-            raise ValueError(f"Lookup table does not contain this data")
+            LOGGER.error(f"Lookup table does not contain key {key}")
+            raise ValueError(f"Lookup table does not contain key {key}")
 
         if key.upper() in self.__DATA:
             return np.copy(self.__DATA[key.upper()])
@@ -376,7 +387,8 @@ class Lookup:
         to the value passed.
         """
         if key not in self:
-            raise ValueError(f"Lookup table does not contain this data")
+            LOGGER.error(f"Lookup table does not contain key {key}")
+            raise ValueError(f"Lookup table does not contain key {key}")
         
         if key.upper() in self.__DATA:
             self.__DATA[key.upper()] = np.copy(value)
@@ -439,6 +451,7 @@ class Lookup:
         ipkwargs = {'bounds_error': False,
                     'fill_value' : None}
 
+        LOGGER.debug("\n\t".join([f"Looking up {'_'.join(outkeys)}", f"From {'_'.join(varkeys)}: {vararg}"] + list(map(lambda it: f"{it[0]}: {it[1]}", pars.items()))))
         # appropriate lookup function is called with modefuncmap dict
         self.__modefuncmap = (outkeys, varkeys)
         return self.__modefuncmap(outkeys, varkeys, vararg, pars, **ipkwargs)
@@ -536,8 +549,8 @@ class Lookup:
             for j in range(0, len(xdesired)):
                 m = max(x[:, i])
                 idx = np.argmax(x[:, i])
-                # if (xdesired[j] > m):
-                #     print(f'Look up warning: {num}_{den} input larger than maximum! Output is NaN')
+                if (xdesired[j] > m):
+                    LOGGER.warning(f'Look up warning: {num}_{den} input larger than maximum! Output is NaN')
                 if (num.upper() == 'GM') and (den.upper() == 'ID'):
                     x_right = x[idx:-1, i]
                     y_right = y[idx:-1, i]
@@ -549,7 +562,7 @@ class Lookup:
                 else:
                     crossings = len(np.argwhere(np.diff(np.sign(x[:,i]-xdesired[j]+eps))))
                     if crossings > 1:
-                        print('Crossing warning')
+                        LOGGER.warning('>1 Crossings')
                         return []
                     output[i, j] = interp1(x[:,i], y[:, i], **ipkwargs)(xdesired[j])
 
@@ -601,11 +614,14 @@ class Lookup:
             # In usage mode (1), the inputs to the function are GM_ID (or ID/W), L, 
             # VDS and VSB
             if (pars['VGB'] and pars['VDB']) == None:
+                LOGGER.debug("Lookup VGS mode 1 (source-relative)")
                 mode = 1
             # In usage mode (2), VDB and VGB must be supplied to the function
             elif (pars['VGB'] and pars['VDB']) != None:
+                LOGGER.debug("Lookup VGS mode 2 (bulk-relative)")
                 mode = 2
             else:
+                LOGGER.error("Invalid lookup VGS usage!")
                 raise SyntaxError("Invalid syntax or usage mode!")
             
             if mode == 1:
@@ -643,8 +659,8 @@ class Lookup:
                     VGS_range = VGS_range[idx:]
                     ratio_range = ratio_range[idx:]
 
-                    # if np.max(np.atleast_1d(ratio_data)) > m:  # type: ignore
-                    #     print('look_upVGS: GM_ID input larger than maximum!')
+                    if np.max(np.atleast_1d(ratio_data)) > m:  # type: ignore
+                        LOGGER.warning('look_upVGS: GM_ID input larger than maximum!')
                 
                 output[j,:] = interp1(ratio_range, VGS_range)(ratio_data)
                 output = output[:]

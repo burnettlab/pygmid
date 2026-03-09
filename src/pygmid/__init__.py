@@ -1,6 +1,8 @@
 """ pygmid package """
 import glob
 import importlib
+import logging
+import logging.handlers
 from itertools import chain
 from pathlib import Path
 
@@ -9,6 +11,27 @@ from .utility import EKV_param_extraction
 
 __all__ = ["Lookup", "EKV_param_extraction"]
 
+# Setup logging
+logger = logging.getLogger(__name__)
+handlers = [
+    logging.StreamHandler(), 
+    logging.handlers.RotatingFileHandler(filename=f"{Path(__name__)}.log", maxBytes=1_000_000, backupCount=1),
+]
+levels = [
+    logging.WARNING,
+    logging.NOTSET,
+]
+formatters = [
+    logging.Formatter("%(asctime)s %(levelname)s (PyGMID): %(message)s", datefmt="%H:%M:%S"),
+    logging.Formatter("%(asctime)s %(levelname)s (PyGMID): %(message)s", datefmt="%Y-%m-%d %H:%M:%S"),
+]
+
+for handler, level, formatter in zip(handlers, levels, formatters, strict=True):
+    handler.setLevel(level)
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+# Import submodules and construct __all__
 package_path = Path(__file__).parent
 
 for module in glob.glob(f"{package_path}/*.py") + glob.glob(f"{package_path}/*/__init__.py"):

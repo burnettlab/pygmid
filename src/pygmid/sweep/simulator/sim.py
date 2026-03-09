@@ -1,15 +1,19 @@
 """ Simulator base class and utilities for sweep simulations. """
+import logging
 import os
 import pickle
 import shutil
+import subprocess
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Dict, Tuple, List
-import os
-import subprocess
-import scipy.io
+from typing import Dict, List, Tuple
+
 import h5py
-from auto_all import public, start_all, end_all
+import scipy.io
+from auto_all import end_all, public, start_all
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 @public
@@ -91,8 +95,8 @@ class Simulator(ABC):
             if os.path.exists(self._sweep_dir):
                 shutil.rmtree(self._sweep_dir)
             os.remove(self.netlist_filepath)
-        except OSError as e:
-            print(f"Could not perform cleanup:\nFile - {e.filename}\nError - {e.strerror}")
+        except OSError:
+            LOGGER.exception(f"Could not perform cleanup!")
 
         # then save data to file
         model_paths = []

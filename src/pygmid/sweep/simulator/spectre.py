@@ -15,6 +15,9 @@ from auto_all import public
 from .sim import Simulator, SIMULATORS
 
 
+LOGGER = logging.getLogger(__name__)
+
+
 @public
 class SpectreSimulator(Simulator):
     """ Spectre simulator class for technology sweeps. """
@@ -124,17 +127,17 @@ sweepvds_noise sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS
     def _run_sim(self):
         try:
             cmd_args = ['spectre', self.netlist_filepath] + [*self.args]
-            # print(f"Running command: {' '.join(cmd_args)}")
+            LOGGER.debug(f"Running command: {' '.join(cmd_args)}")
             subprocess.run(cmd_args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except subprocess.CalledProcessError as e:
-            logging.info(f"Error executing process\n\n{e}")
-            return
+        except subprocess.CalledProcessError:
+            LOGGER.exception(f"Error executing process!")
+
         
     def _cleanup(self, nch, pch) -> Tuple[str, str]:
         try:
             os.remove("params.scs")
-        except OSError as e:
-            print(f"Could not perform cleanup:\nFile - {e.filename}\nError - {e.strerror}")
+        except OSError:
+            LOGGER.exception(f"Could not perform cleanup!")
         return super()._cleanup(nch, pch)
 
 
