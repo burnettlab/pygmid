@@ -94,10 +94,11 @@ class SweepConfig(ABC):
         
     def _write_netlist(self):
         """ Write the netlist for the simulation. """
-        modelfile = self._config['MODEL']['FILE']
+        model_keys = self._config['MODEL'].keys()
         width = self._config['SWEEP']['WIDTH']
         modelp = self._config['MODEL']['MODELP']
         modeln = self._config['MODEL']['MODELN']
+
         try:
             mn_supplement = ' \\\n\t'.join(json.loads(self._config['MODEL']['MN']))
         except json.decoder.JSONDecodeError:
@@ -118,8 +119,10 @@ class SweepConfig(ABC):
         LEN_VEC = np.round(np.array(self._config['SWEEP']['LENGTH']) / LENGTH_PRECISION) * LENGTH_PRECISION
         NFING = self._config['SWEEP']['NFING']
 
+        # Remove MODEL keys passed in other ways
+        model_keys -= {'MODELP', 'MODELN', 'MN', 'MP', 'TEMP'}
+
         netlist = self._simulator.generate_netlist(
-            modelfile=modelfile,
             paramfile=self.paramfile,
             width=width,
             modelp=modelp,
@@ -135,6 +138,7 @@ class SweepConfig(ABC):
             VSB_step=VSB_step,
             LEN_VEC=LEN_VEC,
             NFING=NFING,
+            **dict(map(lambda k: (f"model{k.lower()}", self._config['MODEL'][k]), model_keys))
         )        
 
         with open(self._simulator.netlist_filepath, 'w') as f:
@@ -227,45 +231,45 @@ class NGSpiceConfig(SweepConfig):
         outvars_noise: `['STH','SFL']`
 
         """
-        n.append( ['n.xm1.n:ids','A',   	[1,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['n.xm1.n:vth','V',   	[0,    1,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['n.xm1.n:igd','A',   	[0,    0,   1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['n.xm1.n:igs','A',   	[0,    0,   0,    1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['n.xm1.n:gm','S',    	[0,    0,   0,    0,    1,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['n.xm1.n:gmb','S',  	    [0,    0,   0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['n.xm1.n:gds','S',   	[0,    0,   0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['n.xm1.n:cgg','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
-        n.append( ['n.xm1.n:cgdol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    1,    0,    0,    1,    0  ]])
-        n.append( ['n.xm1.n:cgsol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    1,    1,    0,    0,    0,    0,    1  ]])
-        n.append( ['n.xm1.n:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    1,    1,    0,    0,    0,    0,    0  ]])
-        n.append( ['n.xm1.n:cgd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    1,    0,    0,    0,    0  ]])
-        n.append( ['n.xm1.n:cgb','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    1,    0,    0  ]])
-        n.append( ['n.xm1.n:cdd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        n.append( ['n.xm1.n:css','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        n.append( ['n.xm1.n:cjd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        n.append( ['n.xm1.n:cjs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[ids]","A",   	[1,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[vth]","V",   	[0,    1,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[igd]","A",   	[0,    0,   1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[igs]","A",   	[0,    0,   0,    1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[gm]","S",    	[0,    0,   0,    0,    1,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[gmb]","S",  	    [0,    0,   0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[gds]","S",   	[0,    0,   0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[cgg]","F",   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[cgdol]","F",   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    1,    0,    0,    1,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[cgsol]","F",   	[0,    0,   0,    0,    0,   0,    0,    1,    1,    1,    0,    0,    0,    0,    1  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[cgs]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    1,    1,    0,    0,    0,    0,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[cgd]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    1,    0,    0,    0,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[cgb]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    1,    0,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[cdd]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[css]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[cjd]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
+        n.append( [f"@n.xm1.n{self._config['MODEL']['MODELN']}[cjs]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
 
-        p.append( ['n.xm2.n:ids','A',   	[1,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['n.xm2.n:vth','V',   	[0,    1,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['n.xm2.n:igd','A',   	[0,    0,   1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['n.xm2.n:igs','A',   	[0,    0,   0,    1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['n.xm2.n:gm','S',    	[0,    0,   0,    0,    1,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['n.xm2.n:gmb','S',  	    [0,    0,   0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['n.xm2.n:gds','S',   	[0,    0,   0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['n.xm2.n:cgg','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
-        p.append( ['n.xm2.n:cgdol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    1,    0,    0,    1,    0  ]])
-        p.append( ['n.xm2.n:cgsol','F',   	[0,    0,   0,    0,    0,   0,    0,    1,    1,    1,    0,    0,    0,    0,    1  ]])
-        p.append( ['n.xm2.n:cgs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    1,    1,    0,    0,    0,    0,    0  ]])
-        p.append( ['n.xm2.n:cgd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    1,    0,    0,    0,    0  ]])
-        p.append( ['n.xm2.n:cgb','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    1,    0,    0  ]])
-        p.append( ['n.xm2.n:cdd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        p.append( ['n.xm2.n:css','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
-        p.append( ['n.xm2.n:cjd','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
-        p.append( ['n.xm2.n:cjs','F',   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[ids]","A",   	[1,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[vth]","V",   	[0,    1,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[igd]","A",   	[0,    0,   1,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[igs]","A",   	[0,    0,   0,    1,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[gm]","S",    	[0,    0,   0,    0,    1,   0,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[gmb]","S",  	    [0,    0,   0,    0,    0,   1,    0,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[gds]","S",   	[0,    0,   0,    0,    0,   0,    1,    0,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[cgg]","F",   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    0,    0,    0,    0,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[cgdol]","F",   	[0,    0,   0,    0,    0,   0,    0,    1,    0,    0,    1,    0,    0,    1,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[cgsol]","F",   	[0,    0,   0,    0,    0,   0,    0,    1,    1,    1,    0,    0,    0,    0,    1  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[cgs]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    1,    1,    0,    0,    0,    0,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[cgd]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    1,    0,    0,    0,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[cgb]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    1,    0,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[cdd]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[css]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[cjd]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
+        p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[cjs]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
         
-        n_noise.append(['n.xm1.n:sid', ''])
-        n_noise.append(['n.xm1.n:sfl', ''])
+        n_noise.append([f"@n.xm1.n{self._config['MODEL']['MODELN']}[sid]", ""])
+        n_noise.append([f"@n.xm1.n{self._config['MODEL']['MODELN']}[sfl]", ""])
         
-        p_noise.append(['n.xm2.n:sid', ''])
-        p_noise.append(['n.xm2.n:sfl', ''])
+        p_noise.append([f"@n.xm2.n{self._config['MODEL']['MODELP']}[sid]", ""])
+        p_noise.append([f"@n.xm2.n{self._config['MODEL']['MODELP']}[sfl]", ""])
         return (n, p, n_noise, p_noise)

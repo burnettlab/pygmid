@@ -99,13 +99,13 @@ class NGSpiceSimulator(Simulator):
         show
         write pysweep.raw
         .endc""",
-        "\n".join(map(lambda l: "        .save @" + f"{kwargs['modeln']}[".join(l[0].split(':')) + "]", self._config['n'] + self._config['n_noise']))
+        "\n".join(map(lambda l: f".save {l[0]}", self._config['n'] + self._config['n_noise']))
         + f"""
         .save @vbn[dc]
         .save @vdn[dc]
         .save @vgn[dc]
         .save gn dn bn nn\n""",
-        "\n".join(map(lambda l: "        .save @" + f"{kwargs['modelp']}[".join(l[0].split(':')) + "]", self._config['p'] + self._config['p_noise']))
+        "\n".join(map(lambda l: f".save {l[0]}", self._config['p'] + self._config['p_noise']))
         + f"""
         .save @vbp[dc]
         .save @vdp[dc]
@@ -228,6 +228,8 @@ class NGSpiceSimulator(Simulator):
                 netlist = f.read()
             return netlist
         
+        modelfiles = list(map(lambda k: f".{k} {os.path.expandvars(kwargs.get(f'model{k}'))}", filter(lambda k: f'model{k}' in kwargs, ['include', 'lib'])))    # type: ignore
+        
         return multiline_join(f""" 
         ** sch_path: {self.schematic_filepath}
         **.subckt pysweep
@@ -242,7 +244,7 @@ class NGSpiceSimulator(Simulator):
         XM1 0 gn dn bn {kwargs['modeln']}"""+""" w={wx} l={lx} ng=1 m=1
         """ + f"""XM2 0 gp dp bp {kwargs['modelp']}"""+""" w={wx} l={lx} ng=1 m=1
         **** begin user architecture code
-        """ +"\n".join([f".lib {os.path.expandvars(kwargs['modelfile'])} mos_tt"] + sweep_codes) + """
+        """ +"\n".join(modelfiles + sweep_codes) + """
         **** end user architecture code
         **.ends
         .end
@@ -308,18 +310,17 @@ class NGSpiceSimulator(Simulator):
         df = pd.read_csv(sweep_output_directory, sep=r'\s+')
         df = df.apply(pd.to_numeric)
 
-        df.columns = df.columns.str.replace('[dc]', '')
-        df.columns = df.columns.str.replace('onoise.', '')
-        df.columns = df.columns.str.replace('@', '')
+        # df.columns = df.columns.str.replace('[dc]', '')
+        # df.columns = df.columns.str.replace('onoise.', '')
+        # df.columns = df.columns.str.replace('@', '')
 
         output_dicts = []
-        for dev_name in ("MODELN", "MODELP"):
-            dev_type = self._config['MODEL'][dev_name]
+        for dev_name, comp_name in zip(["MODELN", "MODELP"], ["xm1", "xm2"]):
             # ngspice sweep order is l, vgs, vds, vsb
-            dev_df = df.filter(regex=f'{dev_type}')
-            dev_df.columns = dev_df.columns.str.replace(dev_type, '')
-            dev_df.columns = dev_df.columns.str.replace('[', ':')
-            dev_df.columns = dev_df.columns.str.replace(']', '')
+            dev_df = df.filter(regex=comp_name)
+            # dev_df.columns = dev_df.columns.str.replace(dev_type, '')
+            # dev_df.columns = dev_df.columns.str.replace('[', ':')
+            # dev_df.columns = dev_df.columns.str.replace(']', '')
 
             dev = dev_name[-1].lower()
             # l = np.unique(dev_df['l']) * 1e6    # convert to microns

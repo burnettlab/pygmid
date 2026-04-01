@@ -21,7 +21,7 @@ def multiline_join(in_str: str) -> str:
     ix, line = next(filter(lambda l: len(l[1].lstrip()) and l[1].lstrip()[0] != l[1][0], enumerate(in_str.splitlines())))
     indent_amt = len(line) - len(line.lstrip())
     return '\n'.join(
-        map(lambda e: e[1][(0 if e[0] < ix else indent_amt):], enumerate(in_str.splitlines()))
+        map(lambda e: e[1][(0 if e[0] < ix else min(indent_amt, len(e[1]) - len(e[1].lstrip()))):], enumerate(in_str.splitlines()))
     )
 
 
