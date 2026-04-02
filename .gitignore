@@ -1,17 +1,14 @@
-*.pyc
-*.log
-dist/
-__pycache__
+# Python-generated files
+__pycache__/
+*.py[oc]
 build/
-/MATLAB
-src/**/*.png
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
 .venv
-venv
-pygmid.egg-info
-.pytest_cache/
-.vscode/
-sweep.*/
-*.pkl
-*.scs
-config.cfg
-*.python-version
+
+
+# vscode
+*.vscode*

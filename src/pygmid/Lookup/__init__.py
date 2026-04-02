@@ -1,13 +1,12 @@
-""" pygmid sweep package """
+""" Lookup: pygmid Lookup classes"""
 import glob
 import importlib
+import sys
 from itertools import chain
 from pathlib import Path
-import sys
-from .__main__ import run
 
 package_path = Path(__file__).parent
-__all__ = ["run"]
+__all__ = []
 
 ordered_imports = []
 for module in list(map(lambda m: Path(__file__).parent / m, ordered_imports)) + glob.glob(f"{package_path}/*.py") + glob.glob(f"{package_path}/*/__init__.py"):
@@ -17,4 +16,4 @@ for module in list(map(lambda m: Path(__file__).parent / m, ordered_imports)) + 
         mod = importlib.import_module(f".{mod_name}", package=__package__)
         vars().update(filter(lambda e: e[0] in getattr(mod, "__all__", []), vars(mod).items()))
 
-__all__.extend(chain.from_iterable(map(lambda m: getattr(m, "__all__", []), filter(lambda m: getattr(m, "__package__", None) == __package__, vars().copy().values()))))
+__all__.extend(chain.from_iterable(map(lambda m: getattr(m, "__all__", []), filter(lambda m: getattr(m, "__package__", None) == __package__, vars().copy().values()))))		# type: ignore

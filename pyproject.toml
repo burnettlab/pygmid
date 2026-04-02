@@ -1,24 +1,22 @@
-[build-system]
-requires = ["setuptools>=65", "wheel"]
-build-backend = "setuptools.build_meta"
-
 [project]
 name = "pygmid"
 dynamic = ["version"]
 description = "A python 3 implementation of the gm/ID starter kit"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11.9"
 dependencies = [
-    "numpy",
-    "scipy",
-    "matplotlib",
-    "psf_utils",
-    "tqdm",
-    "prettytable",
-    "h5py",
-    "pandas",
-    "auto_all"
+    "auto-all>=1.4.1",
+    "h5py>=3.16.0",
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.4",
+    "pandas>=3.0.2",
+    "prettytable>=3.17.0",
+    "psf-utils>=1.10",
+    "pyutils",
+    "scipy>=1.17.1",
+    "tqdm>=4.67.3",
 ]
+
 license = "Apache-2.0"
 authors = [
     { name = "Cian Ó Domhnaill", email = "cian.odonnell@tyndall.ie" },
@@ -32,7 +30,7 @@ classifiers = [
 ]
 
 [project.scripts]
-pygmid = "pygmid:main"
+pygmid = "pygmid.__main__:_cli"
 
 [tool.setuptools]
 # Find packages under src/
@@ -46,3 +44,14 @@ version = {attr = "pygmid.__version__"}
 addopts = [
     "--import-mode=importlib",
 ]
+
+[tool.uv.workspace]
+members = [
+    "pygmid",
+]
+
+[tool.uv.sources]
+pyutils = { git = "https://github.com/burnettlab/pyutils.git" }
+
+[tool.uv]
+package = true

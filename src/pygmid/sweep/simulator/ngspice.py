@@ -265,7 +265,7 @@ class NGSpiceSimulator(Simulator):
             nch[outvar] = np.zeros(dimshape, order='F')
             pch[outvar] = np.zeros(dimshape, order='F')
 
-        self._run_sim()
+        # self._run_sim()
         n_dict, p_dict = self.extract_sweep_params(self.output)
         
         for n,p in zip(self._config['n'],self._config['p']):
@@ -307,6 +307,7 @@ class NGSpiceSimulator(Simulator):
         return super()._cleanup(nch, pch)
 
     def extract_sweep_params(self, sweep_output_directory, sweep_type="DC"):
+        print("Extracting sweep results")
         df = pd.read_csv(sweep_output_directory, sep=r'\s+')
         df = df.apply(pd.to_numeric)
 
@@ -326,11 +327,11 @@ class NGSpiceSimulator(Simulator):
             # l = np.unique(dev_df['l']) * 1e6    # convert to microns
             # assert np.all(np.isclose(l, self._config['SWEEP']['LENGTH'])), f"Length sweep values do not match configuration. (Expected {self._config['SWEEP']['LENGTH']}, got {l})"
             l = self._config['SWEEP']['LENGTH']
-            vgs = np.unique(df[f'vg{dev}'])
+            vgs = np.unique(df[f'@vg{dev}[dc]'])
             assert np.all(np.isclose(vgs, self._config['SWEEP']['VGS'])), f"VGS sweep values do not match configuration. (Expected {self._config['SWEEP']['VGS']}, got {vgs})"
-            vds = np.unique(df[f'vd{dev}'])
+            vds = np.unique(df[f'@vd{dev}[dc]'])
             assert np.all(np.isclose(vds, self._config['SWEEP']['VDS'])), f"VDS sweep values do not match configuration. (Expected {self._config['SWEEP']['VDS']}, got {vds})"
-            vsb = np.unique(-df[f'vb{dev}'])
+            vsb = np.unique(-df[f'@vb{dev}[dc]'])
             assert np.all(np.isclose(vsb, self._config['SWEEP']['VSB'])), f"VSB sweep values do not match configuration. (Expected {self._config['SWEEP']['VSB']}, got {vsb})"
             dims = [len(l), len(vgs), len(vds), len(vsb)]
 

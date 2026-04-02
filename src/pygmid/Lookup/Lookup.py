@@ -17,8 +17,8 @@ import scipy.io
 from auto_all import public
 from scipy.interpolate import interpn
 
-from .constants import *
-from .numerical import convert_temp, interp1, num_conv
+from pygmid.constants import *
+from pygmid.numerical import convert_temp, interp1, num_conv
 
 
 LOGGER = logging.getLogger(__name__)
