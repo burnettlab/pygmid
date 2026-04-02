@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import *
 
 from auto_all import public
-from .Lookup import Lookup
+from .lut import Lookup
 from pyutils.units import *
 from pyutils.units.utility import arg_unit_conv, obj_using_units
 from pyutils.types import NUM, Vector
