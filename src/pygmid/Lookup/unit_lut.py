@@ -4,7 +4,7 @@ from typing import *
 from auto_all import public
 from .lut import Lookup
 from pyutils.units import *
-from pyutils.units.utility import arg_unit_conv, obj_using_units
+from pyutils.units.utility import arg_unit_conv, obj_using_units, apply_unit_wraps
 from pyutils.types import NUM, Vector
 
 
@@ -32,9 +32,9 @@ class UnitLookup(Lookup):
             GDS = Siemens,
             GM = Siemens,
             GMB = Siemens,
-            ID = Amp,
-            IGD = Amp,
-            IGS = Amp,
+            ID = Ampere,
+            IGD = Ampere,
+            IGS = Ampere,
             L = Micron,
             LENGTH_PRECISION = Micron,
             WIDTH_PRECISION = Micron,
@@ -43,8 +43,8 @@ class UnitLookup(Lookup):
             MIN_LENGTH = Micron,
             MIN_WIDTH = Micron,
             W = Micron,
-            SFL = lambda x: Amp(x) * Amp(1),
-            STH = lambda x: Amp(x) * Amp(1) / Hz(1),
+            SFL = lambda x: Ampere(x) * Ampere(1),
+            STH = lambda x: Ampere(x) * Ampere(1) / Hz(1),
             TEMP = Kelvin,
             VDD = Volt,
             VDS = Volt,
