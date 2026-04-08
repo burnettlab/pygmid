@@ -2,7 +2,7 @@ from collections import defaultdict
 from typing import *
 
 from auto_all import public
-from .lut import Lookup
+from pygmid.Lookup.lut import Lookup
 from pyutils.units import *
 from pyutils.units.utility import arg_unit_conv, obj_using_units, apply_unit_wraps
 from pyutils.types import NUM, Vector
@@ -43,8 +43,8 @@ class UnitLookup(Lookup):
             MIN_LENGTH = Micron,
             MIN_WIDTH = Micron,
             W = Micron,
-            SFL = lambda x: Ampere(x) * Ampere(1),
-            STH = lambda x: Ampere(x) * Ampere(1) / Hz(1),
+            SFL = lambda x: Ampere(x) * Ampere(1) / Hertz(1),
+            STH = lambda x: Ampere(x) * Ampere(1) / Hertz(1),
             TEMP = Kelvin,
             VDD = Volt,
             VDS = Volt,
@@ -59,10 +59,13 @@ class UnitLookup(Lookup):
     def ratio_units(key: Union[str, Tuple[str, str]]) -> Callable[[Union[str, NUM]], Union[str, NUM]]:
         if isinstance(key, str):
             if "_" not in key:
-                return self.unit_func(key)
+                return UnitLookup.unit_func(key)
             
             num, den = key.split("_")
         else:
+            if len(key) == 1:
+                return UnitLookup.unit_func(key[0])
+            
             num, den = key
 
         return lambda x: UnitLookup.unit_func(num)(x) / UnitLookup.unit_func(den)(1)    # type: ignore
@@ -77,6 +80,28 @@ class UnitLookup(Lookup):
     def items(self):
         # Materialize (key, value) pairs using __getitem__ so conversion is applied
         return ((k, self[k]) for k in self.keys())
+    
+    @arg_unit_conv
+    def lookup(self, out, **kwargs):
+        """
+        Entry method for lookup functionality
+
+        Sanitises input. Extracts the variable key as first key value pair
+        in kwargs dict. Both the outkey and varkey are converted to lists.
+        String is split based on _ character.
+
+        Mode is determined and appropriate lookup function is called from
+        modefuncmap dict
+
+        Args:
+            out: desired variable to be interpolated 'GM', 'ID' etc
+            kwargs: keyword arguments (dict). First key-value pair is
+                    variable argument
+
+        Returns:
+            y: interpolated data, [] if erroneous mode selected
+        """
+        return super().look_up(out, **kwargs)
 
     @arg_unit_conv
     def look_up(self, out, **kwargs):
@@ -101,6 +126,17 @@ class UnitLookup(Lookup):
         return super().look_up(out, **kwargs)
     
     @arg_unit_conv
+    def lookupVGS(self, **kwargs) -> Vector[Volt]:
+        """ Look up VGS from the model with unit conversion. """
+        p_use = getattr(self, "USE_UNITS", None)
+        self.USE_UNITS = False
+
+        res = super().look_upVGS(**kwargs)
+
+        self.USE_UNITS = p_use
+        return res
+    
+    @arg_unit_conv
     def look_upVGS(self, **kwargs) -> Vector[Volt]:
         """ Look up VGS from the model with unit conversion. """
         p_use = getattr(self, "USE_UNITS", None)
@@ -117,7 +153,7 @@ class UnitLookup(Lookup):
 
             STH/gm * 1/(4kT)
         
-        where STH is thermal noise psd at 1 Hz
+        where STH is thermal noise psd at 1 Hertz
             
         Args:
             **kwargs: lookup parameters, GM_ID, length, VDS etc...
@@ -128,14 +164,14 @@ class UnitLookup(Lookup):
         # should provide a GMID, VDS and L
         return super().gamma(**kwargs)
     
-    def fco(self, **kwargs) -> UREG.Hz:
+    def fco(self, **kwargs) -> Hertz:
         """
         Companion flicker corner function. Computes flicker corner from:
 
             SFL/STH
         
-        where STH is thermal noise psd at 1 Hz
-        and SFL is flicker noise psd at 1 Hz
+        where STH is thermal noise psd at 1 Hertz
+        and SFL is flicker noise psd at 1 Hertz
             
         Args:
             **kwargs: lookup parameters, GM_ID, length, VDS etc...

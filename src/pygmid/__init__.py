@@ -3,6 +3,7 @@ import glob
 import importlib
 import logging
 import logging.handlers
+import sys
 from itertools import chain
 from pathlib import Path
 
@@ -31,9 +32,10 @@ for handler, level, formatter in zip(handlers, levels, formatters, strict=True):
 # Import submodules and construct __all__
 package_path = Path(__file__).parent
 
-for module in glob.glob(f"{package_path}/*.py") + glob.glob(f"{package_path}/*/__init__.py"):
+ordered_imports = []
+for module in list(map(lambda m: Path(__file__).parent / m, ordered_imports)) + glob.glob(f"{package_path}/*.py") + list(map(lambda s: s.replace("/__init__.py", ""), glob.glob(f"{package_path}/*/__init__.py"))):
     mod_name = str(Path(module).relative_to(package_path).with_suffix('')).replace("/", ".")
-    if not mod_name.startswith("__") and not mod_name.endswith("__"):
+    if not mod_name.startswith("__") and not mod_name.endswith("__") and f"{__package__}.{mod_name}" not in sys.modules:
         __all__.append(mod_name)
         mod = importlib.import_module(f".{mod_name}", package=__package__)
         vars().update(filter(lambda e: e[0] in getattr(mod, "__all__", []), vars(mod).items()))

@@ -283,8 +283,8 @@ class NGSpiceSimulator(Simulator):
             params_p = p
             values_p = p_dict[params_p[0]]
             for m, outvar in enumerate(self._config['outvars_noise']):
-                nch[outvar] += np.squeeze(values_n)
-                pch[outvar] += np.squeeze(values_p)
+                nch[outvar] += np.squeeze(values_n*params_n[2])
+                pch[outvar] += np.squeeze(values_p*params_p[2])
         return self._cleanup(nch, pch)
         
     def _run_sim(self):

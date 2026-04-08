@@ -118,8 +118,8 @@ sweepvds_noise sweep param=ds start=0 stop={kwargs['VDS_max']} step={kwargs['VDS
                 params_p = p
                 values_p = pn_dict[params_p[0]]
                 for m, outvar in enumerate(self._config['outvars_noise']):
-                    nch[outvar][i,:,:,j] += np.squeeze(values_n)
-                    pch[outvar][i,:,:,j] += np.squeeze(values_p)
+                    nch[outvar][i,:,:,j] += np.squeeze(values_n*params_n[2])
+                    pch[outvar][i,:,:,j] += np.squeeze(values_p*params_p[2])
 
         return self._cleanup(nch, pch)
 

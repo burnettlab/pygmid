@@ -207,11 +207,11 @@ class SpectreConfig(SweepConfig):
         p.append( ['mp:cjd','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
         p.append( ['mp:cjs','F',   	[ 0,    0,    0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
         
-        n_noise.append(['mn:id', ''])
-        n_noise.append(['mn:fn', ''])
+        n_noise.append(['mn:id', '', 1])
+        n_noise.append(['mn:fn', '', 1])
         
-        p_noise.append(['mp:id', ''])
-        p_noise.append(['mp:fn', ''])
+        p_noise.append(['mp:id', '', 1])
+        p_noise.append(['mp:fn', '', 1])
         return (n, p, n_noise, p_noise)
     
 
@@ -267,9 +267,9 @@ class NGSpiceConfig(SweepConfig):
         p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[cjd]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    1,    0  ]])
         p.append( [f"@n.xm2.n{self._config['MODEL']['MODELP']}[cjs]","F",   	[0,    0,   0,    0,    0,   0,    0,    0,    0,    0,    0,    0,    0,    0,    1  ]])
         
-        n_noise.append([f"@n.xm1.n{self._config['MODEL']['MODELN']}[sid]", ""])
-        n_noise.append([f"@n.xm1.n{self._config['MODEL']['MODELN']}[sfl]", ""])
+        n_noise.append([f"@n.xm1.n{self._config['MODEL']['MODELN']}[sid]", "", 1])
+        n_noise.append([f"@n.xm1.n{self._config['MODEL']['MODELN']}[sfl]", "", 1])
         
-        p_noise.append([f"@n.xm2.n{self._config['MODEL']['MODELP']}[sid]", ""])
-        p_noise.append([f"@n.xm2.n{self._config['MODEL']['MODELP']}[sfl]", ""])
+        p_noise.append([f"@n.xm2.n{self._config['MODEL']['MODELP']}[sid]", "", 1])
+        p_noise.append([f"@n.xm2.n{self._config['MODEL']['MODELP']}[sfl]", "", 1])
         return (n, p, n_noise, p_noise)

@@ -51,7 +51,7 @@ members = [
 ]
 
 [tool.uv.sources]
-pyutils = { git = "https://github.com/burnettlab/pyutils.git" }
+pyutils = { path = "../pyutils", editable = true }
 
 [tool.uv]
 package = true

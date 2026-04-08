@@ -531,12 +531,8 @@ class Lookup:
             len(np.atleast_1d(pars['VGS'])), len(np.atleast_1d(pars['VDS'])),\
                  len(np.atleast_1d(pars['VSB'])))
         
-        x = np.array(np.squeeze(np.transpose(x, (1, 0, 2, 3))))
-        y = np.array(np.squeeze(np.transpose(y, (1, 0, 2, 3))))
-        
-        if x.ndim == 1:
-            x.shape += (1,)
-            y.shape += (1,)
+        x = np.atleast_2d(np.array(np.squeeze(np.transpose(x, (1, 0, 2, 3)))))
+        y = np.atleast_2d(np.array(np.squeeze(np.transpose(y, (1, 0, 2, 3)))))
 
         dim = x.shape
         output = np.zeros((dim[1], len(xdesired)))  #   type: ignore
@@ -706,11 +702,11 @@ class Lookup:
         return self.look_up('SFL_STH', **kwargs)
         
     def __repr__(self) -> str:
-        return f"PyGMID_Lookup<{self.__DATA['INFO']}>"
+        return f"PyGMID_Lookup<{self['INFO'].astype(str)}>"
 
     def __str__(self) -> str:
         tab = prettytable.PrettyTable()
-        tab.title = f"PyGMID: {self.__DATA['INFO']}"
+        tab.title = f"PyGMID: {self['INFO'].astype(str)}"
         tab.field_names = ['Variable', 'Size', 'Min', 'Max']
 
         for k, v in filter(lambda it: hasattr(it[1], 'dtype'), self.items()):
