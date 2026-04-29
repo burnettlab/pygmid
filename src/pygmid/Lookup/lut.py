@@ -531,8 +531,12 @@ class Lookup:
             len(np.atleast_1d(pars['VGS'])), len(np.atleast_1d(pars['VDS'])),\
                  len(np.atleast_1d(pars['VSB'])))
         
-        x = np.atleast_2d(np.array(np.squeeze(np.transpose(x, (1, 0, 2, 3)))))
-        y = np.atleast_2d(np.array(np.squeeze(np.transpose(y, (1, 0, 2, 3)))))
+        x = np.atleast_2d(np.squeeze(np.transpose(x, (1, 0, 2, 3))))
+        y = np.atleast_2d(np.squeeze(np.transpose(y, (1, 0, 2, 3))))
+        if x.shape[0] == 1:
+            x = np.moveaxis(x, 0, -1)
+        if y.shape[0] == 1:
+            y = np.moveaxis(y, 0, -1)
 
         dim = x.shape
         output = np.zeros((dim[1], len(xdesired)))  #   type: ignore
