@@ -265,7 +265,7 @@ class NGSpiceSimulator(Simulator):
             nch[outvar] = np.zeros(dimshape, order='F')
             pch[outvar] = np.zeros(dimshape, order='F')
 
-        # self._run_sim()
+        self._run_sim()
         n_dict, p_dict = self.extract_sweep_params(self.output)
         
         for n,p in zip(self._config['n'],self._config['p']):
