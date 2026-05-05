@@ -1,4 +1,5 @@
-""" Simulator base class and utilities for sweep simulations. """
+"""Simulator base class and utilities for sweep simulations."""
+
 import logging
 import os
 import pickle
@@ -12,35 +13,52 @@ import h5py
 import scipy.io
 from auto_all import end_all, public, start_all
 
-
 LOGGER = logging.getLogger(__name__)
 
 
 @public
 def multiline_join(in_str: str) -> str:
-    ix, line = next(filter(lambda l: len(l[1].lstrip()) and l[1].lstrip()[0] != l[1][0], enumerate(in_str.splitlines())))
+    ix, line = next(
+        filter(
+            lambda l: len(l[1].lstrip()) and l[1].lstrip()[0] != l[1][0],
+            enumerate(in_str.splitlines()),
+        )
+    )
     indent_amt = len(line) - len(line.lstrip())
-    return '\n'.join(
-        map(lambda e: e[1][(0 if e[0] < ix else min(indent_amt, len(e[1]) - len(e[1].lstrip()))):], enumerate(in_str.splitlines()))
+    return "\n".join(
+        map(
+            lambda e: e[1][
+                (0 if e[0] < ix else min(indent_amt, len(e[1]) - len(e[1].lstrip()))) :
+            ],
+            enumerate(in_str.splitlines()),
+        )
     )
 
 
 @public
 @dataclass
 class Simulator(ABC):
-    """ Abstract base class for sweep simulators. """
-    _config: 'Config' = field(repr=False)
-    netlist_name: str = 'pysweep'
+    """Abstract base class for sweep simulators."""
+
+    _config: "Config" = field(repr=False)
+    netlist_name: str = "pysweep"
     netlist_ext: str = field(init=False)
     args: List[str] = field(default_factory=lambda: [os.getcwd()])
-    _sweep_dir: str = './sweep'
+    _sweep_dir: str = "./sweep"
 
     def __post_init__(self):
-        sim_name = self.__class__.__name__.lower().replace('simulator', '')
+        sim_name = self.__class__.__name__.lower().replace("simulator", "")
         try:
-            subprocess.run(["which", sim_name], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(
+                ["which", sim_name],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
         except subprocess.CalledProcessError as e:
-            raise EnvironmentError(f"{sim_name} not found in PATH. Please install or set up the environment correctly.\n\n{e}")
+            raise EnvironmentError(
+                f"{sim_name} not found in PATH. Please install or set up the environment correctly.\n\n{e}"
+            )
 
     @property
     def directory(self) -> str:
@@ -53,12 +71,12 @@ class Simulator(ABC):
     @property
     def netlist_filepath(self) -> str:
         return os.path.expandvars(f"{self.netlist_name}.{self.netlist_ext}")
-    
+
     @property
     @abstractmethod
     def output(self) -> str:
         pass
-    
+
     @output.setter
     @abstractmethod
     def output(self, args: Tuple):
@@ -77,16 +95,18 @@ class Simulator(ABC):
         pass
 
     @abstractmethod
-    def extract_sweep_params(self, sweep_output_directory, sweep_type) -> Tuple[Dict, Dict]:
+    def extract_sweep_params(
+        self, sweep_output_directory, sweep_type
+    ) -> Tuple[Dict, Dict]:
         pass
-            
+
     def parse_sim(self, filepath):
         fileparts = filepath.split("_")
         i = int(fileparts[-2])
         j = int(fileparts[-1])
-        
-        (n_dict, p_dict) = self.extract_sweep_params(filepath, sweep_type="DC")
-        (nn_dict, pn_dict) = self.extract_sweep_params(filepath, sweep_type="NOISE")
+
+        n_dict, p_dict = self.extract_sweep_params(filepath, sweep_type="DC")
+        nn_dict, pn_dict = self.extract_sweep_params(filepath, sweep_type="NOISE")
 
         return i, j, n_dict, p_dict, nn_dict, pn_dict
 
@@ -101,21 +121,27 @@ class Simulator(ABC):
         # then save data to file
         model_paths = []
 
-        for savefile, data in zip([self._config['MODEL']['SAVEFILEN'], self._config['MODEL']['SAVEFILEP']], [nch, pch]):
+        for savefile, data in zip(
+            [self._config["MODEL"]["SAVEFILEN"], self._config["MODEL"]["SAVEFILEP"]],
+            [nch, pch],
+        ):
             file_root, file_ext = os.path.splitext(savefile)
             if not file_ext:
-                file_ext = '.h5'
+                file_ext = ".h5"
 
             filename = f"{file_root}{file_ext}"
-            if file_ext == '.mat':
+            if file_ext == ".mat":
                 scipy.io.savemat(filename, data)
-            elif file_ext == '.pkl':
-                with open(filename, 'wb') as f:
+            elif file_ext == ".pkl":
+                with open(filename, "wb") as f:
                     pickle.dump(data, f)
-            elif file_ext in ['.h5', '.hdf5']:
+            elif file_ext in [".h5", ".hdf5"]:
                 filename = f"{file_root.split('_')[0]}{file_ext}"
-                with h5py.File(filename, 'a') as f:
-                    group_name = '/'.join(list(map(lambda k: f"{k}:{data[k]}", ["CORNER", "TEMP", "VDD"])) + file_root.split('_')[1:])
+                with h5py.File(filename, "a") as f:
+                    group_name = "/".join(
+                        list(map(lambda k: f"{k}:{data[k]}", ["CORNER", "TEMP", "VDD"]))
+                        + file_root.split("_")[1:]
+                    )
                     if group_name in f:
                         grp = f[group_name]
                     else:
@@ -123,15 +149,18 @@ class Simulator(ABC):
 
                     for key, value in data.items():
                         if key in grp:
-                            grp[key] = value    # type: ignore
+                            grp[key] = value  # type: ignore
                         else:
-                            grp.create_dataset(key, data=value)   # type: ignore
+                            grp.create_dataset(key, data=value)  # type: ignore
             else:
-                raise TypeError(f'Filetype {file_ext} not supported (only .mat, .pkl, .h5 and .hdf5)')
-            
+                raise TypeError(
+                    f"Filetype {file_ext} not supported (only .mat, .pkl, .h5 and .hdf5)"
+                )
+
             model_paths.append(filename)
 
         return tuple(model_paths)
+
 
 start_all()
 SIMULATORS = {}

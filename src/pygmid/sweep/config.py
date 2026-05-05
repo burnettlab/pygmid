@@ -1,16 +1,17 @@
 import ast
 import configparser
 import json
+import os
 from abc import ABC, abstractmethod
-from itertools import chain
 from dataclasses import dataclass, field
-from typing import Optional, Union, List, Tuple
-from auto_all import public
+from itertools import chain
+from typing import List, Optional, Tuple, Union
 
 import numpy as np
+from auto_all import public
 
+from ..numerical import convert_temp, num_conv
 from .simulator import *
-from ..numerical import num_conv, convert_temp
 
 LENGTH_PRECISION = 0.005  # in microns
 
@@ -33,9 +34,17 @@ class SweepConfig(ABC):
     _simulator: 'Simulator' = field(init=False, repr=False)
 
     def __post_init__(self):
+        def convert_string_paths(d: dict) -> dict:
+            for k, v in d.items():
+                if isinstance(v, dict):
+                    d[k] = convert_string_paths(v)
+                elif isinstance(v, str):
+                    d[k] = ' '.join(map(os.path.expandvars, v.split(' ')))
+            return d
+        
         self._configParser.optionxform = toupper	
         self._configParser.read(self.config_file_path)
-        self._config = {s:dict(map(lambda e: (e[0], num_conv(e[1])), self._configParser.items(s))) for s in self._configParser.sections()}
+        self._config = convert_string_paths({s:dict(map(lambda e: (e[0], num_conv(e[1])), self._configParser.items(s))) for s in self._configParser.sections()})
         self._parse_ranges()
         
         self._config['outvars'] = 	['ID','VT','IGD','IGS','GM','GMB','GDS','CGG','CGS','CSG','CGD','CDG','CGB','CDD','CSS']
@@ -50,10 +59,7 @@ class SweepConfig(ABC):
 
     @property
     def paramfile(self) -> str:
-        if self._config.get("SIMULATOR", {"TYPE": "spectre"})["TYPE"] == "spectre":
-            return self._config['MODEL'].get('PARAMFILE', 'params.scs')
-        else:
-            return '.'.join(self._config['MODEL'].get('PARAMFILE', self._simulator.output).split(".")[:-1] + ["sch"])
+        return os.path.expandvars(self._config['MODEL'].get('PARAMFILE', 'params.scs') if self._config.get("SIMULATOR", {"TYPE": "spectre"})["TYPE"] == "spectre" else '.'.join(self._config['MODEL'].get('PARAMFILE', self._simulator.output).split(".")[:-1] + ["sch"]))
 
     def __getitem__(self, key):
         return self._config[key]
@@ -65,7 +71,7 @@ class SweepConfig(ABC):
             v = [v] if type(v) is not list else v
             v = [matrange(*r) if isinstance(r, (list, tuple)) else [r] for r in v]
             v = list(chain.from_iterable(v))
-            self._config['SWEEP'][k] = np.unique(v).tolist()
+            self._config['SWEEP'][k] = np.unique(v).squeeze()
 
         self._config['SWEEP']['WIDTH'] = float(self._config['SWEEP']['WIDTH'])
         self._config['SWEEP']['NFING'] = int(self._config['SWEEP']['NFING'])
@@ -100,21 +106,27 @@ class SweepConfig(ABC):
         modeln = self._config['MODEL']['MODELN']
 
         try:
-            mn_supplement = ' \\\n\t'.join(json.loads(self._config['MODEL']['MN']))
+            mn_supplement = ' \\\n\t'.join(map(os.path.expandvars, json.loads(self._config['MODEL']['MN'])))
         except json.decoder.JSONDecodeError:
             raise SyntaxError("Error parsing config: make sure MN has no weird characters in it, and that the list isn't terminated with a trailing ','")
         try:
-            mp_supplement = ' \\\n\t'.join(json.loads(self._config['MODEL']['MP']))
+            mp_supplement = ' \\\n\t'.join(map(os.path.expandvars, json.loads(self._config['MODEL']['MP'])))
         except json.decoder.JSONDecodeError:
             raise SyntaxError("Error parsing config: make sure MP has no weird characters in it, and that the list isn't terminated with a trailing ','")
-        
+
+        div_arr = lambda n, d: np.isclose(n / d, np.array([np.floor(n / d), np.ceil(n / d)]))
+        is_divisible = lambda n, d: np.any(div_arr(n, d))
+
         temp = convert_temp(self._config['MODEL']['TEMP'])
         VDS_max = max(self._config['SWEEP']['VDS'])
         VDS_step = np.round(self._config['SWEEP']['VDS'][1] - self._config['SWEEP']['VDS'][0], 6)
+        assert is_divisible(VDS_max, VDS_step), f"VDS Maximum ({VDS_max}) must be divisible by step size ({VDS_step}) ({div_arr(VDS_max, VDS_step)})"
         VGS_max = max(self._config['SWEEP']['VGS'])
         VGS_step = np.round(self._config['SWEEP']['VGS'][1] - self._config['SWEEP']['VGS'][0], 6)
+        assert is_divisible(VGS_max, VGS_step), f"VGS Maximum ({VGS_max}) must be divisible by step size ({VGS_step}) ({div_arr(VGS_max, VGS_step)})"
         VSB_max = max(self._config['SWEEP']['VSB'])
         VSB_step = np.round(self._config['SWEEP']['VSB'][1] - self._config['SWEEP']['VSB'][0], 6)
+        assert is_divisible(VSB_max, VSB_step), f"VSB Maximum ({VSB_max}) must be divisible by step size ({VSB_step})"
 
         LEN_VEC = np.round(np.array(self._config['SWEEP']['LENGTH']) / LENGTH_PRECISION) * LENGTH_PRECISION
         NFING = self._config['SWEEP']['NFING']

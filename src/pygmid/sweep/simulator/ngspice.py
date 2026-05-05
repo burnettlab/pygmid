@@ -10,16 +10,16 @@ import numpy as np
 import pandas as pd
 from auto_all import public
 
-from .sim import Simulator, multiline_join, SIMULATORS
-
+from .sim import SIMULATORS, Simulator, multiline_join
 
 LOGGER = logging.getLogger(__name__)
 
 
 @public
 class NGSpiceSimulator(Simulator):
-    """ NGSPICE simulator class for technology sweeps. """
-    netlist_ext: str = 'spice'
+    """NGSPICE simulator class for technology sweeps."""
+
+    netlist_ext: str = "spice"
 
     def __post_init__(self):
         self.args = [
@@ -33,27 +33,29 @@ class NGSpiceSimulator(Simulator):
 
     @property
     def output(self) -> str:
-        return os.path.expandvars(f"techsweep_{'_'.join(self._config['MODEL']['MODELN'].split('_')[:-1])}.txt")
-    
+        return os.path.expandvars(
+            f"techsweep_{'_'.join(self._config['MODEL']['MODELN'].split('_')[:-1])}.txt"
+        )
+
     @output.setter
     def output(self, args: Tuple):
         pass
 
     @property
     def logfile(self) -> str:
-        return self.output.replace('.txt', '.log')
+        return self.output.replace(".txt", ".log")
 
     @property
     def symbol_dir(self) -> str:
-        return self._config['SYMBOLS']['PATH']
-    
+        return self._config["SYMBOLS"]["PATH"]
+
     @cached_property
     def schematic_filepath(self) -> str:
         return self.netlist_filepath.replace(self.netlist_ext, "sch")
 
     def generate_netlist(self, **kwargs) -> str:
         sweep_codes = [
-        f"""
+            f"""
         .param wx={kwargs['width']/kwargs['NFING']:.3f}u lx={kwargs['LEN_VEC'][0]:.3f}u
         .save all
         .noise v(nn) vgn dec 1 1 1e11 1
@@ -66,9 +68,9 @@ class NGSpiceSimulator(Simulator):
         set sqrnoise
 
         compose l_vec values {'u '.join(map(lambda l: f'{l:.3f}', kwargs['LEN_VEC']))}u
-        compose vg_vec start= 0 stop={kwargs['VGS_max']+0.001:.3f}  step={kwargs['VGS_step']:.3f}
-        compose vd_vec start= 0 stop={kwargs['VDS_max']+0.001:.3f}  step={kwargs['VDS_step']:.3f}
-        compose vb_vec start= 0 stop=-{kwargs['VSB_max']+0.001:.3f} step=-{kwargs['VSB_step']:.3f}
+        compose vg_vec start=0 stop={kwargs['VGS_max']+0.001:.3f}  step={kwargs['VGS_step']:.3f}
+        compose vd_vec start=0 stop={kwargs['VDS_max']+0.001:.3f}  step={kwargs['VDS_step']:.3f}
+        compose vb_vec start=0 stop=-{kwargs['VSB_max']+0.001:.3f} step=-{kwargs['VSB_step']:.3f}
 
         foreach var1 $&l_vec
             alterparam lx=$var1
@@ -99,29 +101,40 @@ class NGSpiceSimulator(Simulator):
         show
         write pysweep.raw
         .endc""",
-        "\n".join(map(lambda l: f".save {l[0]}", self._config['n'] + self._config['n_noise']))
-        + f"""
+            "\n".join(
+                map(
+                    lambda l: f".save {l[0]}",
+                    self._config["n"] + self._config["n_noise"],
+                )
+            )
+            + f"""
         .save @vbn[dc]
         .save @vdn[dc]
         .save @vgn[dc]
         .save gn dn bn nn\n""",
-        "\n".join(map(lambda l: f".save {l[0]}", self._config['p'] + self._config['p_noise']))
-        + f"""
+            "\n".join(
+                map(
+                    lambda l: f".save {l[0]}",
+                    self._config["p"] + self._config["p_noise"],
+                )
+            )
+            + f"""
         .save @vbp[dc]
         .save @vdp[dc]
         .save @vgp[dc]
         .save gp dp bp np\n""",
-        """
+            """
         .control
         quit
         .endc
-        """
+        """,
         ]
 
-        xschem_rc = self._config['SIMULATOR'].get('XSCHEM_RC', None)
+        xschem_rc = self._config["SIMULATOR"].get("XSCHEM_RC", None)
         if xschem_rc is not None:
+            xschem_rc = os.path.expandvars(xschem_rc)
             comp_codes = [
-            """
+                """
             "}
             C {devices/launcher.sym} 1000 -480 0 0 {name=h3
             descr="save, netlist & simulate"
@@ -129,15 +142,16 @@ class NGSpiceSimulator(Simulator):
             C {devices/code_shown.sym} 0 -940 0 0 {name=COMMANDS2 only_toplevel=false
             value="
             """,
-            """
+                """
             "}
             C {devices/code_shown.sym} 640 -940 0 0 {name=COMMANDS3 only_toplevel=false
             value="
             """,
-            "\"}"
+                '"}',
             ]
 
-            schem = """v {xschem version=3.4.6 file_version=1.2}
+            schem = (
+                """v {xschem version=3.4.6 file_version=1.2}
             G {}
             K {}
             V {}
@@ -198,107 +212,143 @@ class NGSpiceSimulator(Simulator):
             C {devices/code_shown.sym} 0 -1800 0 0 {name=COMMANDS1 only_toplevel=false
             value="
 
-            """ + '\n'.join(''.join(s) for s in zip(sweep_codes, comp_codes)) + """
+            """
+                + "\n".join("".join(s) for s in zip(sweep_codes, comp_codes))
+                + """
             C {devices/ccvs.sym} 890 -250 0 0 {name=Hn vnam=vdn value=1}
             C {devices/ccvs.sym} 1890 -340 0 0 {name=Hp vnam=vdp value=1}
-            C {"""+rf"{self.symbol_dir}/{kwargs['modeln']}.sym"+r"""} 600 -340 2 1 {name=M1
-            """ + f"""
+            C {"""
+                + rf"{self.symbol_dir}/{kwargs['modeln']}.sym"
+                + r"""} 600 -340 2 1 {name=M1
+            """
+                + f"""
             {kwargs['mn_supplement']}
             model={kwargs['modeln']}
-            """ + """spiceprefix=X
+            """
+                + """spiceprefix=X
             }
-            C {"""+f"{self.symbol_dir}/{kwargs['modelp']}.sym"+r"""} 1600 -250 2 1 {name=M2
-            """ + f"""
+            C {"""
+                + f"{self.symbol_dir}/{kwargs['modelp']}.sym"
+                + r"""} 1600 -250 2 1 {name=M2
+            """
+                + f"""
             {kwargs['mp_supplement']}
             model={kwargs['modelp']}
-            """ + """spiceprefix=X
+            """
+                + """spiceprefix=X
             }
             C {devices/code_shown.sym} 50 -10 0 0 {name=MODEL only_toplevel=true
             format="tcleval( @value )"
-            value=".lib """ + kwargs['modelfile'] + """ mos_tt"}
+            value=".lib """
+                + kwargs["modelfile"]
+                + """ mos_tt"}
             """
+            )
 
-            with open(self.schematic_filepath, 'w') as f:
+            with open(self.schematic_filepath, "w") as f:
                 f.write(multiline_join(schem))
             LOGGER.debug("Generating netlist using xschem...")
-            cmd_args = ['xschem', '--detach', '--netlist', self.schematic_filepath, '-o', str(Path(self.netlist_filepath).parent.resolve()), '--rcfile', os.path.expandvars(xschem_rc)]
-        
-            subprocess.run(cmd_args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            with open(self.netlist_filepath, 'r') as f:
+            cmd_args = [
+                "xschem",
+                "--detach",
+                "--netlist",
+                self.schematic_filepath,
+                "-o",
+                str(Path(self.netlist_filepath).parent.resolve()),
+                "--rcfile",
+                os.path.expandvars(xschem_rc),
+            ]
+
+            subprocess.run(
+                cmd_args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            with open(self.netlist_filepath, "r") as f:
                 netlist = f.read()
             return netlist
-        
-        modelfiles = list(map(lambda k: f".{k} {os.path.expandvars(kwargs.get(f'model{k}'))}", filter(lambda k: f'model{k}' in kwargs, ['include', 'lib'])))    # type: ignore
-        
-        return multiline_join(f""" 
+
+        modelfiles = list(map(lambda k: f".{k} {os.path.expandvars(kwargs.get(f'model{k}'))}", filter(lambda k: f"model{k}" in kwargs, ["include", "lib"])))  # type: ignore
+
+        return multiline_join(
+            f""" 
         ** sch_path: {self.schematic_filepath}
         **.subckt pysweep
-        vgn gn 0 DC 0.6 AC 1
-        vdn dn 0 0.6
+        vgn gn 0 DC {kwargs['VGS_max']/2} AC 1
+        vdn dn 0 {kwargs['VDS_max']/2}
         vbn bn 0 0
-        vgp 0 gp DC 0.6 AC 1
-        vdp 0 dp 0.6
+        vgp 0 gp DC {kwargs['VGS_max']/2} AC 1
+        vdp 0 dp {kwargs['VDS_max']/2}
         vbp 0 bp 0
-        Hn nn 0 vdn 1
+        Hn 0 nn vdn 1
         Hp 0 np vdp 1
-        XM1 0 gn dn bn {kwargs['modeln']}"""+""" w={wx} l={lx} ng=1 m=1
-        """ + f"""XM2 0 gp dp bp {kwargs['modelp']}"""+""" w={wx} l={lx} ng=1 m=1
+        XM1 0 gn dn bn {kwargs['modeln']}"""
+            + """ w={wx} l={lx} ng=1 m=1
+        """
+            + f"""XM2 0 gp dp bp {kwargs['modelp']}"""
+            + """ w={wx} l={lx} ng=1 m=1
         **** begin user architecture code
-        """ +"\n".join(modelfiles + sweep_codes) + """
+        """
+            + "\n".join(modelfiles + sweep_codes)
+            + """
         **** end user architecture code
         **.ends
         .end
-        """)
+        """
+        )
 
     def run(self):
-        Ls = self._config['SWEEP']['LENGTH']
-        VSBs = self._config['SWEEP']['VSB']
+        Ls = self._config["SWEEP"]["LENGTH"]
+        VSBs = self._config["SWEEP"]["VSB"]
 
         nch = self._config.generate_m_dict()
         pch = self._config.generate_m_dict()
-        dimshape = (len(Ls),len(nch['VGS']),len(nch['VDS']),len(VSBs))
-        for outvar in self._config['outvars']:
-            nch[outvar] = np.zeros(dimshape, order='F')
-            pch[outvar] = np.zeros(dimshape, order='F')
+        dimshape = (len(Ls), len(nch["VGS"]), len(nch["VDS"]), len(VSBs))
+        for outvar in self._config["outvars"]:
+            nch[outvar] = np.zeros(dimshape, order="F")
+            pch[outvar] = np.zeros(dimshape, order="F")
 
-        for outvar in self._config['outvars_noise']:
-            nch[outvar] = np.zeros(dimshape, order='F')
-            pch[outvar] = np.zeros(dimshape, order='F')
+        for outvar in self._config["outvars_noise"]:
+            nch[outvar] = np.zeros(dimshape, order="F")
+            pch[outvar] = np.zeros(dimshape, order="F")
 
         self._run_sim()
         n_dict, p_dict = self.extract_sweep_params(self.output)
-        
-        for n,p in zip(self._config['n'],self._config['p']):
-            params_n = n
-            values_n = n_dict[params_n[0]]
-            params_p = p
-            values_p = p_dict[params_p[0]]
-            for m, outvar in enumerate(self._config['outvars']):
-                nch[outvar] += np.squeeze(values_n*params_n[2][m])
-                pch[outvar] += np.squeeze(values_p*params_p[2][m])
 
-        for n,p in zip(self._config['n_noise'],self._config['p_noise']):
+        for n, p in zip(self._config["n"], self._config["p"]):
             params_n = n
             values_n = n_dict[params_n[0]]
             params_p = p
             values_p = p_dict[params_p[0]]
-            for m, outvar in enumerate(self._config['outvars_noise']):
-                nch[outvar] += np.squeeze(values_n*params_n[2])
-                pch[outvar] += np.squeeze(values_p*params_p[2])
+            for m, outvar in enumerate(self._config["outvars"]):
+                nch[outvar] += np.squeeze(values_n * params_n[2][m])
+                pch[outvar] += np.squeeze(values_p * params_p[2][m])
+
+        for n, p in zip(self._config["n_noise"], self._config["p_noise"]):
+            params_n = n
+            values_n = n_dict[params_n[0]]
+            params_p = p
+            values_p = p_dict[params_p[0]]
+            for m, outvar in enumerate(self._config["outvars_noise"]):
+                nch[outvar] += np.squeeze(values_n * params_n[2])
+                pch[outvar] += np.squeeze(values_p * params_p[2])
         return self._cleanup(nch, pch)
-        
+
     def _run_sim(self):
         try:
-            cmd_args = ['ngspice'] + self.args
+            cmd_args = ["ngspice"] + self.args
             LOGGER.debug(f"Running command: {' '.join(cmd_args)}")
-            subprocess.run(cmd_args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(
+                cmd_args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
             sleep(1)
         except subprocess.CalledProcessError:
             LOGGER.exception(f"Error executing process!")
-        
+
     def _cleanup(self, nch, pch) -> Tuple[str, str]:
         clean_path = lambda ext: self.output.replace("txt", ext)
-        for p in list(map(clean_path, ("txt", "log"))) + [self.netlist_filepath.replace(self.netlist_ext, "sch"), "pysweep.raw"]:
+        for p in list(map(clean_path, ("txt", "log"))) + [
+            self.netlist_filepath.replace(self.netlist_ext, "sch"),
+            "pysweep.raw",
+        ]:
             try:
                 os.remove(p)
             except OSError:
@@ -308,7 +358,7 @@ class NGSpiceSimulator(Simulator):
 
     def extract_sweep_params(self, sweep_output_directory, sweep_type="DC"):
         print("Extracting sweep results")
-        df = pd.read_csv(sweep_output_directory, sep=r'\s+')
+        df = pd.read_csv(sweep_output_directory, sep=r"\s+")
         df = df.apply(pd.to_numeric)
 
         # df.columns = df.columns.str.replace('[dc]', '')
@@ -326,17 +376,38 @@ class NGSpiceSimulator(Simulator):
             dev = dev_name[-1].lower()
             # l = np.unique(dev_df['l']) * 1e6    # convert to microns
             # assert np.all(np.isclose(l, self._config['SWEEP']['LENGTH'])), f"Length sweep values do not match configuration. (Expected {self._config['SWEEP']['LENGTH']}, got {l})"
-            l = self._config['SWEEP']['LENGTH']
-            vgs = np.unique(df[f'@vg{dev}[dc]'])
-            assert np.all(np.isclose(vgs, self._config['SWEEP']['VGS'])), f"VGS sweep values do not match configuration. (Expected {self._config['SWEEP']['VGS']}, got {vgs})"
-            vds = np.unique(df[f'@vd{dev}[dc]'])
-            assert np.all(np.isclose(vds, self._config['SWEEP']['VDS'])), f"VDS sweep values do not match configuration. (Expected {self._config['SWEEP']['VDS']}, got {vds})"
-            vsb = np.unique(-df[f'@vb{dev}[dc]'])
-            assert np.all(np.isclose(vsb, self._config['SWEEP']['VSB'])), f"VSB sweep values do not match configuration. (Expected {self._config['SWEEP']['VSB']}, got {vsb})"
+            l = self._config["SWEEP"]["LENGTH"]
+
+            vgs = np.unique(df[f"@vg{dev}[dc]"])
+            vgs = vgs[np.isfinite(vgs)]
+            assert vgs.shape == self._config["SWEEP"]["VGS"].shape and np.all(
+                np.isclose(vgs, self._config["SWEEP"]["VGS"])
+            ), f"VGS sweep values do not match configuration. (Expected {self._config['SWEEP']['VGS']}, got {vgs} [{np.isclose(vgs, self._config['SWEEP']['VGS'])}])"
+
+            vds = np.unique(df[f"@vd{dev}[dc]"])
+            vds = vds[np.isfinite(vds)]
+            assert vds.shape == self._config["SWEEP"]["VDS"].shape and np.all(
+                np.isclose(vds, self._config["SWEEP"]["VDS"])
+            ), f"VDS sweep values do not match configuration. (Expected {self._config['SWEEP']['VDS']}, got {vds} [{np.isclose(vds, self._config['SWEEP']['VDS'])}])"
+
+            vsb = np.unique(-df[f"@vb{dev}[dc]"])
+            vsb = vsb[np.isfinite(vsb)]
+            assert vsb.shape == self._config["SWEEP"]["VSB"].shape and np.all(
+                np.isclose(vsb, self._config["SWEEP"]["VSB"])
+            ), f"VSB sweep values do not match configuration. (Expected {self._config['SWEEP']['VSB']}, got {vsb} [{np.isclose(vsb, self._config['SWEEP']['VSB'])}])"
+
             dims = [len(l), len(vgs), len(vds), len(vsb)]
 
-            output_dicts.append(dict(map(lambda item: (item[0], np.reshape(item[1], dims)), dev_df.to_dict(orient='list').items())))
+            output_dicts.append(
+                dict(
+                    map(
+                        lambda item: (item[0], np.reshape(item[1], dims)),
+                        dev_df.to_dict(orient="list").items(),
+                    )
+                )
+            )
 
         return tuple(output_dicts)
 
-SIMULATORS['ngspice'] = NGSpiceSimulator
+
+SIMULATORS["ngspice"] = NGSpiceSimulator
