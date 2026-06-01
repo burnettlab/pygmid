@@ -29,6 +29,11 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
+[project.optional-dependencies]
+sweep = [
+    "pygmid-sweep",
+]
+
 
 [tool.pytest.ini_options]
 addopts = [
@@ -38,6 +43,7 @@ addopts = [
 
 [tool.uv.sources]
 blab-pyutils = { git = "https://github.com/burnettlab/blab_pyutils.git" }
+pygmid-sweep = { git = "https://github.com/burnettlab/pygmid_sweep.git" }
 
 
 [tool.uv]
