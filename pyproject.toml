@@ -1,20 +1,20 @@
 [project]
 name = "pygmid"
-dynamic = ["version"]
+version = "1.3.0"
 description = "A python 3 implementation of the gm/ID starter kit"
 readme = "README.md"
 requires-python = ">=3.11.9"
 dependencies = [
     "auto-all>=1.4.1",
+    "blab-pyutils",
+    "coloredlogs>=15.0.1",
     "h5py>=3.16.0",
     "matplotlib>=3.10.8",
     "numpy>=2.4.4",
     "pandas>=3.0.2",
     "prettytable>=3.17.0",
-    "psf-utils>=1.10",
-    "pyutils",
+    "pyyaml>=6.0.3",
     "scipy>=1.17.1",
-    "tqdm>=4.67.3",
 ]
 
 license = "Apache-2.0"
@@ -29,29 +29,16 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-[project.scripts]
-pygmid = "pygmid.__main__:_cli"
-
-[tool.setuptools]
-# Find packages under src/
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.dynamic]
-version = {attr = "pygmid.__version__"}
 
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",
 ]
 
-[tool.uv.workspace]
-members = [
-    "pygmid",
-]
 
 [tool.uv.sources]
-pyutils = { path = "../pyutils", editable = true }
+blab-pyutils = { git = "https://github.com/burnettlab/blab_pyutils.git" }
+
 
 [tool.uv]
 package = true

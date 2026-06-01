@@ -1,4 +1,4 @@
-"""pygmid"""
+"""pygmid utility package"""
 
 import glob
 import importlib
@@ -8,11 +8,10 @@ from pathlib import Path
 
 __all__ = []
 
-
 # Import submodules and construct __all__
 package_path = Path(__file__).parent
 
-ordered_imports = ["logging", "lookup"]
+ordered_imports = []
 for module in (
     list(map(lambda m: Path(__file__).parent / m, ordered_imports))
     + glob.glob(f"{package_path}/*.py")

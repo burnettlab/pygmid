@@ -5,10 +5,12 @@ build/
 dist/
 wheels/
 *.egg-info
+*.log
 
 # Virtual environments
-.venv
+*.*venv*
 
 
-# vscode
+# Editor files
 *.vscode*
+*.zed*
