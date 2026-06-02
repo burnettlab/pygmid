@@ -18,9 +18,6 @@ def timedelta_constructor(loader, node):
     return datetime.timedelta(**fields)
 
 
-yaml.SafeLoader.add_constructor("!timedelta", timedelta_constructor)
-
-
 @public
 def setup_logging(
     default_path=Path(__file__).parent / "logging.yaml",
@@ -37,6 +34,7 @@ def setup_logging(
     if path.exists():
         with open(path, "rt") as f:
             try:
+                yaml.SafeLoader.add_constructor("!timedelta", timedelta_constructor)
                 config = yaml.safe_load(f.read())
                 logging.config.dictConfig(config)
             except Exception as e:
