@@ -3,12 +3,13 @@
 import glob
 import importlib
 import sys
+from typing import Type
 from dataclasses import MISSING, Field, fields
 from pathlib import Path
 
 from .base import _BaseLUT
 
-LUTS: dict[str, _BaseLUT] = {}
+LUTS: dict[str, Type[_BaseLUT]] = {}
 
 __all__ = ["LUTS"]
 

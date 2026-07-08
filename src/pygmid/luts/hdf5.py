@@ -14,6 +14,30 @@ from pygmid.utility.numerical import convert_temp, num_conv
 from .base import _BaseLUT
 
 
+def wrap_once(wrapper_func: Callable[..., Any]) -> Callable[..., Any]:
+    """Decorator to ensure a function is only wrapped once per wrapper."""
+
+    @wraps(wrapper_func)
+    def wrap_once_wrapper(*args, **kwargs):
+        # If called as a decorator-factory (e.g. @decorator(arg=...)), the first call
+        # will not receive the function to wrap as the first positional arg.
+        if not args or not callable(args[0]):
+            return wrapper_func(*args, **kwargs)  # produce the actual decorator
+
+        # Called directly as a plain decorator: first arg is the function to wrap
+        wrapped_func = args[0]
+        if wrapper_func.__name__ in getattr(wrapped_func, "_wrapped_by_", set()):
+            return wrapped_func
+        setattr(
+            wrapped_func,
+            "_wrapped_by_",
+            getattr(wrapped_func, "_wrapped_by_", set()) | {wrapper_func.__name__},
+        )
+        return wrapper_func(wrapped_func, *args[1:], **kwargs)
+
+    return wrap_once_wrapper
+
+
 def get_group_name(**kwargs) -> str:
     return "/".join(
         map(
@@ -23,6 +47,7 @@ def get_group_name(**kwargs) -> str:
     )
 
 
+@wrap_once
 def h5open(func: Optional[Callable] = None, *, cls_override: Optional[Any] = None):
     if func is None:
         return partial(h5open, cls_override=cls_override)
@@ -110,8 +135,8 @@ class _H5LUT(_BaseLUT):
 
         def dist_calc(x):
             return (
-                abs(x - env_val)
-                if x <= env_val or k != "VDD" or np.isclose(x, env_val)
+                abs(env_val - x)
+                if env_val <= x or k != "VDD" or np.isclose(env_val, x)
                 else float("inf")
             )
 

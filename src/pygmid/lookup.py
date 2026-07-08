@@ -7,15 +7,17 @@ from collections.abc import Mapping
 from dataclasses import InitVar, dataclass, field
 from itertools import chain
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import prettytable
 from auto_all import public
+from joblib import Parallel, delayed, parallel_config
 from scipy.constants import k as kB
 from scipy.interpolate import interpn
 
 from pygmid.luts import LUTS
+from pygmid.luts.hdf5 import _H5LUT
 from pygmid.utility.numerical import interp1
 
 LOGGER = logging.getLogger(__name__)
@@ -46,7 +48,10 @@ class Lookup:
 
     @property
     def __modefuncmap(self) -> Callable:
+        # from pygmid.luts.hdf5 import _H5LUT, h5open
+
         f = {1: self._SimpleLK, 2: self._SimpleLK, 3: self._RatioVRatioLK}[self._mode]
+
         # if isinstance(self.__DATA, _H5LUT):
         #     f = h5open(f, cls_override=self.__DATA)
         return f
@@ -86,6 +91,18 @@ class Lookup:
             raise ValueError(
                 "Invalid syntax or usage mode! Please check documentation."
             )
+
+    @property
+    def parallel_config(self) -> Dict[str, Any]:
+        if "_parallel_cfg" not in self.__dict__:
+            self._parallel_cfg = dict(
+                # prefer="threads" if isinstance(self.__DATA, _H5LUT) else "processes",
+            )
+        return self._parallel_cfg
+
+    @parallel_config.setter
+    def parallel_config(self, value: Dict[str, Any]):
+        self._parallel_cfg = value
 
     def __post_init__(self, filename, device, lut_kwargs):
         """
@@ -306,7 +323,6 @@ class Lookup:
             output: interpolated data specified by outkeys Squeezed to remove extra
                     dimensions
         """
-
         if len(outkeys) > 1:
             num, den = outkeys
             with np.errstate(divide="ignore", invalid="ignore"):
@@ -461,7 +477,7 @@ class Lookup:
             output: 1-d numpy array
         """
 
-        def perform_lk(self, **kwargs):
+        def perform_lk(self, parallel_cfg: Dict = {}, **kwargs):
             kwargs = {
                 k.upper(): v for k, v in kwargs.items()
             }  # convert kwargs to upper
@@ -514,19 +530,34 @@ class Lookup:
                 )
                 VGS = pars["VGB"] - VSB
                 VDS = pars["VDB"] - VSB
-                ratio = np.array(
-                    [
-                        self.look_up(
-                            ratio_string,
-                            VGS=VGS[i],
-                            VDS=VDS[i],
-                            VSB=VSB[i],
-                            L=pars["L"],
-                            **kwargs,
-                        ).item()
-                        for i in range(len(VGS))
-                    ]
-                )
+                with parallel_config(**self.parallel_config):
+                    ratio = np.array(
+                        Parallel(**parallel_cfg)(
+                            delayed(self.look_up)(
+                                ratio_string,
+                                VGS=VGS[i],
+                                VDS=VDS[i],
+                                VSB=VSB[i],
+                                L=pars["L"],
+                                **kwargs,
+                            )
+                            for i in range(len(VGS))
+                        )
+                    )
+
+                # ratio = np.array(
+                #     [
+                #         self.look_up(
+                #             ratio_string,
+                #             VGS=VGS[i],
+                #             VDS=VDS[i],
+                #             VSB=VSB[i],
+                #             L=pars["L"],
+                #             **kwargs,
+                #         ).item()
+                #         for i in range(len(VGS))
+                #     ]
+                # )
                 idx = ~np.isnan(ratio)
                 ratio = ratio[idx]
                 VGS = VGS[idx]
@@ -604,7 +635,7 @@ class Lookup:
 
     def __str__(self) -> str:
         tab = prettytable.PrettyTable()
-        tab.title = f"PyGMID: {self['INFO'].astype(str)}"
+        tab.title = f"PyGMID: {self['INFO']}"
         tab.field_names = ["Variable", "Size", "Min", "Max"]
 
         for k, v in filter(lambda it: hasattr(it[1], "dtype"), self.items()):

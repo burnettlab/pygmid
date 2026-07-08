@@ -101,9 +101,40 @@ def convert_temp(temp: float | str, temp_unit="C") -> float:
 def dimension_round(
     min_dim: float, max_dim: float, precision: float, num_points: int
 ) -> np.typing.NDArray:
-    dim_arr = np.logspace(
-        np.log10(min_dim), np.log10(max_dim), num_points, endpoint=True
-    )
+    """Create a rounded array of dimensions from min_dim to max_dim with num_points points.
+    Points are logarithmically spaced if the range is greater than 2 orders of magnitude. Otherwise, points are linearly spaced.
+
+    Parameters
+    ----------
+    min_dim : float
+        Minimum dimension value.
+    max_dim : float
+        Maximum dimension value.
+    precision : float
+        Desired precision of the rounded values.
+    num_points : int
+        Number of points in the array.
+
+    Returns
+    -------
+    np.typing.NDArray
+        Rounded array of dimensions.
+    """
+    if (
+        min_dim == 0
+        or max_dim == 0
+        or np.sign(min_dim) != np.sign(max_dim)
+        or np.abs(np.log10(np.abs(max_dim)) - np.log10(np.abs(min_dim))) <= 2
+    ):
+        np_space = np.linspace
+        start = min_dim
+        end = max_dim
+    else:
+        np_space = np.logspace
+        start = np.log10(min_dim)
+        end = np.log10(max_dim)
+
+    dim_arr = np_space(start, end, num_points, endpoint=True)
     dim_arr = np.unique(
         np.round(np.asanyarray(dim_arr, dtype=float) / precision) * precision
     )

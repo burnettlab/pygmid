@@ -21,7 +21,7 @@ def EKV_param_extraction(lk, mode, **kwargs):
     return XTRACT(lk, mode, **kwargs)
 
 
-@public
+# @public
 def XTRACT(lk, mode, **kwargs):
     """
     EKV param extraction algorithm.

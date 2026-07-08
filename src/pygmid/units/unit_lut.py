@@ -55,7 +55,7 @@ class UnitLookup(Lookup):
                 MIN_LENGTH=Micron,
                 MIN_WIDTH=Micron,
                 W=Micron,
-                SFL=lambda x: Volt(x) * Volt(1) / Hertz(1),
+                SFL=lambda x: Ampere(x) * Ampere(1) / Hertz(1),
                 STH=lambda x: Volt(x) * Volt(1) / Hertz(1),
                 TEMP=lambda x: Kelvin(Kelvin(x)),
                 VDD=Volt,

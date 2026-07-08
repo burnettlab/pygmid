@@ -11,7 +11,7 @@ __all__ = []
 # Import wanted submodules and construct __all__
 package_path = Path(__file__).parent
 
-wanted_imports = ["logging", "lookup"]
+wanted_imports = ["logging", "lookup", "PySpice"]
 for module in map(lambda m: Path(__file__).parent / m, wanted_imports):
     mod_name = str(Path(module).relative_to(package_path).with_suffix("")).replace(
         "/", "."
